@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Reflection.Metadata.Ecma335;
+using System.Text.RegularExpressions;
 using Reddit.Controllers;
 using Serilog;
 
@@ -16,10 +17,11 @@ public class BotCommand
         (RegexConsts.TimeRegionModel, ReserveTimeRequest),
         (RegexConsts.RegionTimeModel, ReserveTimeRequest),
         (RegexConsts.ModelTimeRegion, ReserveTimeRequest),
+        (RegexConsts.Thanks, ThanksRequest),
         (RegexConsts.Help, HelpRequest),
-        (@"16[0-9]{8}", NullResponse),
-        (@"rtReserveTime", NullResponse),
-        (@"fammy", NullResponse),
+        //(@"16[0-9]{8}", NullResponse),
+        //(@"rtReserveTime", NullResponse),
+        //(@"fammy", NullResponse),
         //(@"(!deckbot|!deck_bot)", HelpRequest),
     };
 
@@ -27,7 +29,13 @@ public class BotCommand
     {
         foreach (var command in commands)
         {
-            var match = Regex.Match(comment.Body, command.Pattern, RegexOptions.IgnoreCase);
+#if DEBUG
+            var pattern = command.Pattern.Replace("deckbot", @"debug\.deckbot").Replace("deck_bot", @"debug\.deck_bot");
+#else
+            var pattern = command.Pattern;
+#endif
+
+            var match = Regex.Match(comment.Body, pattern, RegexOptions.IgnoreCase);
             if (match.Success)
             {
                 return (true, command.ReplyFunc(comment, match));
@@ -49,7 +57,7 @@ public class BotCommand
 
     private static string HelpRequest(Comment comment, Match match) => @$"Hi {comment.Author}, I'm deck_bot. Here's what you can do with me:
 
-Find out far the queue is to your order: `!deckbot region model rtReserveTime`
+Find out how far the order queue is to your order: `!deckbot region model rtReserveTime`
 
 Example: `!deckbot US 64 1626460525`
 
@@ -76,12 +84,12 @@ I only respond in /r/SteamDeck
 
         if (IsInFuture(reserveTime))
         {
-            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}gb** reservation. Your reservation time is in the future. Something seems off.";
+            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off.";
         }
 
         if (reserveTime < PreOrderStartTime)
         {
-            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}gb** reservation. Your reservation time is before pre-orders opened. Something seems off.";
+            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off.";
         }
 
         var timeAfterSeconds = reserveTime - PreOrderStartTime;
@@ -97,15 +105,18 @@ I only respond in /r/SteamDeck
         var timeLeft = new TimeSpan(0, 0, reserveTime - bestTime);
 
         var timeAfterStr = FormatTime(timeAfter);
-        var timeLeftStr = FormatTime(timeLeft);
-        var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
 
         if (timeLeft.TotalSeconds <= 0)
         {
-            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}gb** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet?";
+            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet?";
         }
 
-        return $@"Hi {comment.Author}, if looks like you have a **{region} {model}gb** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. You have **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there!";
+        var timeLeftStr = FormatTime(timeLeft);
+        var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
+
+        var closing = percent >= 90 ? "! Soon™️" : ".";
+
+        return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are have **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
     }
 
     private static bool IsInFuture(int seconds)
@@ -142,5 +153,12 @@ I only respond in /r/SteamDeck
         }
 
         return $"{currentStr}, {length} {unit}{s}";
+    }
+
+    private static string ThanksRequest(Comment comment, Match match)
+    {
+        if (comment.Body.Contains("no")) return string.Empty;
+
+        return @$"You're welcome {comment.Author}!";
     }
 }

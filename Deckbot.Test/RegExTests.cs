@@ -149,5 +149,15 @@ namespace Deckbot.Test
             Assert.IsFalse(Regex.IsMatch("!deckbot AB 512 1626412345", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
             Assert.IsFalse(Regex.IsMatch("!deckbot US 512 162641", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
         }
+
+        [TestMethod]
+        [DataRow("thanks deckbot!")]
+        [DataRow("thank you deckbot")]
+        [DataRow("deckbot thanks")]
+        [DataRow("deck_bot thank you")]
+        public void Thanks(string message)
+        {
+            Assert.IsTrue(Regex.IsMatch(message, RegexConsts.Thanks, RegexOptions.IgnoreCase));
+        }
     }
 }
