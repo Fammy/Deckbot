@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Deckbot.Console": {
+      "commandName": "Project"
+    },
+    "Docker": {
+      "commandName": "Docker"
+    }
+  }
+}

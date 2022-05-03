@@ -1,0 +1,13 @@
+*.user
+*.suo
+_ReSharper.*
+_ReSharper*/
+*.resharper
+*.resharper.user
+[Oo]bj
+[Bb]in
+[Dd]ebug
+/.vs
+
+Deckbot.Console/config
+Deckbot.Console/logs
