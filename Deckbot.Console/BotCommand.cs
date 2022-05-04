@@ -15,7 +15,7 @@ public class BotCommand
         (RegexConsts.TimeRegionModel, ReserveTimeRequest),
         (RegexConsts.RegionTimeModel, ReserveTimeRequest),
         (RegexConsts.ModelTimeRegion, ReserveTimeRequest),
-        (RegexConsts.Thanks, ThanksRequest),
+        //(RegexConsts.Thanks, ThanksRequest),
         (RegexConsts.Help, HelpRequest),
         //(@"16[0-9]{8}", NullResponse),
         //(@"rtReserveTime", NullResponse),

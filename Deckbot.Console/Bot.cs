@@ -8,16 +8,16 @@ namespace Deckbot.Console;
 
 public static class Bot
 {
-    private static object _lock = new ();
+    private static object _lock = new();
     private static int commentsSeenCount;
-    private static readonly Queue<(string CommentId, string Reply)> replyQueue = new();
+    private static readonly Queue<BotReply> replyQueue = new();
 
     public static void Go()
     {
         var config = ConfigReader.GetConfig("./config/config.json");
-        ReservationData = DataReader.GetReservationData();
+        ReservationData = FileSystem.GetReservationData();
 
-        Client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret, userAgent: "bot:deck_bot:v0.1.0 (by /u/Fammy)");
+        Client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret, userAgent: "bot:deck_bot:v0.1.1 (by /u/Fammy)");
 
         BotName = Client.Account.Me.Name;
 
@@ -67,11 +67,6 @@ public static class Bot
     {
         try
         {
-            if (DataReader.NeedsUpdate)
-            {
-                ReservationData = DataReader.GetReservationData();
-            }
-
             foreach (var comment in e.Added)
             {
                 commentsSeenCount++;
@@ -96,6 +91,8 @@ public static class Bot
     {
         lock (_lock)
         {
+            FileSystem.WriteReplyQueue(replyQueue);
+
             var queueHasItems = replyQueue.Any();
 
             if (!queueHasItems)
@@ -103,7 +100,9 @@ public static class Bot
                 return;
             }
 
-            WriteLine($"Comments in reply queue: {replyQueue.Count}");
+            var queueSize = replyQueue.Count;
+
+            WriteLine($"Comments in reply queue: {queueSize}");
 
             var lastRateLimited = DateTime.Now - RateLimitedTime;
             if (lastRateLimited < TimeSpan.FromSeconds(120))
@@ -116,12 +115,13 @@ public static class Bot
 
             while (replyQueue.Count > 0)
             {
-                var item = replyQueue.Peek();
+                var reply = replyQueue.Peek();
 
-                var comment = Client.Comment(item.CommentId);
+                var comment = Client.Comment(reply.CommentId);
+
                 try
                 {
-                    comment.Reply(item.Reply);
+                    comment.Reply(reply.Reply);
                     //WriteLine($"--> Replied: {item.Reply}");
 
                     replyQueue.Dequeue();
@@ -132,7 +132,9 @@ public static class Bot
                     RateLimitedTime = DateTime.Now;
 
                     System.Console.WriteLine(ex);
-                    Log.Error(ex, $"Rate Limited, processed {processed}/{replyQueue.Count} comments in the reply queue");
+                    Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} comments in the reply queue");
+
+                    FileSystem.WriteReplyQueue(replyQueue);
 
                     return;
                 }
@@ -141,13 +143,13 @@ public static class Bot
                     replyQueue.Dequeue();
 
                     System.Console.WriteLine(ex);
-                    Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{replyQueue.Count} comments in the reply queue");
-
-                    return;
+                    Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{queueSize} comments in the reply queue");
                 }
             }
 
-            WriteLine($"Made it through the queue, processed {processed}/{replyQueue.Count}");
+            WriteLine($"Made it through the queue, processed {processed}/{queueSize}");
+
+            FileSystem.WriteReplyQueue(replyQueue);
         }
     }
 
@@ -156,6 +158,11 @@ public static class Bot
         if (string.IsNullOrWhiteSpace(comment.Body) || string.IsNullOrWhiteSpace(comment.Author)) return;
 
         if (comment.Author.Equals(BotName, StringComparison.CurrentCultureIgnoreCase)) return;
+
+        if (FileSystem.ReservationDataNeedsUpdate)
+        {
+            ReservationData = FileSystem.GetReservationData();
+        }
 
         var command = new BotCommand();
 
@@ -177,7 +184,11 @@ public static class Bot
             //WriteLine($"--> Replied: {reply}");
             lock (_lock)
             {
-                replyQueue.Enqueue((comment.Fullname, reply));
+                replyQueue.Enqueue(new BotReply
+                {
+                    CommentId = comment.Fullname,
+                    Reply = reply
+                });
             }
         }
     }

@@ -1,8 +1,11 @@
-﻿namespace Deckbot.Console;
+﻿using System.Text.Json;
 
-public static class DataReader
+namespace Deckbot.Console;
+
+public static class FileSystem
 {
     private const string ReservationDataFilename = "./config/data.tsv";
+    private const string ReplyQueueFilename = "./data/replyqueue.json";
 
     private static readonly object _lock = new ();
     private static DateTime lastUpdated = DateTime.MinValue;
@@ -29,7 +32,7 @@ public static class DataReader
         }
     }
 
-    public static bool NeedsUpdate
+    public static bool ReservationDataNeedsUpdate
     {
         get
         {
@@ -45,5 +48,11 @@ public static class DataReader
 
             return false;
         }
+    }
+
+    public static void WriteReplyQueue(Queue<BotReply> replyQueue)
+    {
+        var json = JsonSerializer.Serialize(replyQueue);
+        File.WriteAllText(ReplyQueueFilename, json);
     }
 }
