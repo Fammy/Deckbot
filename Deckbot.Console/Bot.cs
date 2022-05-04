@@ -8,6 +8,7 @@ namespace Deckbot.Console;
 
 public static class Bot
 {
+    private const int RateLimitCooldown = 120;
     private static object _lock = new();
     private static int commentsSeenCount;
     private static Queue<BotReply> replyQueue = new();
@@ -23,6 +24,7 @@ public static class Bot
         lock (_lock)
         {
             replyQueue = FileSystemOperations.GetReplyQueue();
+            WriteLine($"Restored {replyQueue.Count} replies from disk...");
         }
 
         var subs = Client.Account.MySubscribedSubreddits();
@@ -42,7 +44,7 @@ public static class Bot
     }
 
     private static RedditClient Client { get; set; }
-    private static DateTime RateLimitedTime { get; set; } = DateTime.Now - TimeSpan.FromSeconds(120);
+    private static DateTime RateLimitedTime { get; set; } = DateTime.Now - TimeSpan.FromSeconds(RateLimitCooldown);
     private static string BotName { get; set; }
 
     public static List<(string Model, string Region, int ReserveTime)> ReservationData { get; private set; }
@@ -109,9 +111,9 @@ public static class Bot
             WriteLine($"Comments in reply queue: {queueSize}");
 
             var lastRateLimited = DateTime.Now - RateLimitedTime;
-            if (lastRateLimited < TimeSpan.FromSeconds(120))
+            if (lastRateLimited < TimeSpan.FromSeconds(RateLimitCooldown))
             {
-                WriteLine($"Skipping reply queue due to rate limit {lastRateLimited.TotalSeconds:F1} seconds ago...");
+                WriteLine($"Skipping reply queue for {RateLimitCooldown} seconds due to rate limit {lastRateLimited.TotalSeconds:F1} seconds ago...");
                 return;
             }
 
@@ -130,6 +132,8 @@ public static class Bot
 
                     replyQueue.Dequeue();
                     processed++;
+
+                    Thread.Sleep(500);
                 }
                 catch (RedditRateLimitException ex)
                 {
