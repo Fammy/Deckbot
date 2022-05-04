@@ -55,7 +55,7 @@ public class BotCommand
         return string.Empty;
     }
 
-    private static string HelpRequest(Comment comment, Match match) => @$"Hi {comment.Author}, I'm deck_bot. Here's what you can do with me:
+    private static string HelpRequest(Comment comment, Match match) => @$"Hi, I'm deck_bot. Here's what you can do with me:
 
 Find out how far the order queue is to your order: `!deckbot region model rtReserveTime`
 
@@ -84,12 +84,12 @@ I only respond in /r/SteamDeck
 
         if (IsInFuture(reserveTime))
         {
-            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off.";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off.";
         }
 
         if (reserveTime < PreOrderStartTime)
         {
-            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off.";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off.";
         }
 
         var timeAfterSeconds = reserveTime - PreOrderStartTime;
@@ -108,7 +108,7 @@ I only respond in /r/SteamDeck
 
         if (timeLeft.TotalSeconds <= 0)
         {
-            return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet?";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet?";
         }
 
         var timeLeftStr = FormatTime(timeLeft);
@@ -116,7 +116,7 @@ I only respond in /r/SteamDeck
 
         var closing = percent >= 90 ? "! Soon™️" : ".";
 
-        return $@"Hi {comment.Author}, if looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are have **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
+        return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
     }
 
     private static bool IsInFuture(int seconds)
