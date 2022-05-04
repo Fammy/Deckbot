@@ -10,16 +10,20 @@ public static class Bot
 {
     private static object _lock = new();
     private static int commentsSeenCount;
-    private static readonly Queue<BotReply> replyQueue = new();
+    private static Queue<BotReply> replyQueue = new();
 
     public static void Go()
     {
-        var config = ConfigReader.GetConfig("./config/config.json");
-        ReservationData = FileSystem.GetReservationData();
-
-        Client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret, userAgent: "bot:deck_bot:v0.1.1 (by /u/Fammy)");
+        var config = FileSystemOperations.GetConfig("./config/config.json");
+        ReservationData = FileSystemOperations.GetReservationData();
+        Client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret, userAgent: "bot:deck_bot:v0.1.2 (by /u/Fammy)");
 
         BotName = Client.Account.Me.Name;
+
+        lock (_lock)
+        {
+            replyQueue = FileSystemOperations.GetReplyQueue();
+        }
 
         var subs = Client.Account.MySubscribedSubreddits();
 
@@ -51,7 +55,7 @@ public static class Bot
         sub.Comments.GetNew();
         sub.Comments.NewUpdated += OnNewComment;
         WriteLine($"Monitoring new comments in /r/{sub.Name}...");
-        sub.Comments.MonitorNew(monitoringBaseDelayMs: 1500);
+        sub.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
 
     private static void ProcessPost(Post post)
@@ -60,7 +64,7 @@ public static class Bot
         post.Comments.GetNew();
         post.Comments.NewUpdated += OnNewComment;
         WriteLine($"Monitoring new comments in my post {post.Title}...");
-        post.Comments.MonitorNew(monitoringBaseDelayMs: 1500);
+        post.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
 
     private static void OnNewComment(object? sender, CommentsUpdateEventArgs e)
@@ -91,7 +95,7 @@ public static class Bot
     {
         lock (_lock)
         {
-            FileSystem.WriteReplyQueue(replyQueue);
+            FileSystemOperations.WriteReplyQueue(replyQueue);
 
             var queueHasItems = replyQueue.Any();
 
@@ -134,7 +138,7 @@ public static class Bot
                     System.Console.WriteLine(ex);
                     Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} comments in the reply queue");
 
-                    FileSystem.WriteReplyQueue(replyQueue);
+                    FileSystemOperations.WriteReplyQueue(replyQueue);
 
                     return;
                 }
@@ -149,7 +153,7 @@ public static class Bot
 
             WriteLine($"Made it through the queue, processed {processed}/{queueSize}");
 
-            FileSystem.WriteReplyQueue(replyQueue);
+            FileSystemOperations.WriteReplyQueue(replyQueue);
         }
     }
 
@@ -159,9 +163,9 @@ public static class Bot
 
         if (comment.Author.Equals(BotName, StringComparison.CurrentCultureIgnoreCase)) return;
 
-        if (FileSystem.ReservationDataNeedsUpdate)
+        if (FileSystemOperations.ReservationDataNeedsUpdate)
         {
-            ReservationData = FileSystem.GetReservationData();
+            ReservationData = FileSystemOperations.GetReservationData();
         }
 
         var command = new BotCommand();

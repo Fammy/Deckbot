@@ -2,13 +2,19 @@
 
 namespace Deckbot.Console;
 
-public static class FileSystem
+public static class FileSystemOperations
 {
     private const string ReservationDataFilename = "./config/data.tsv";
     private const string ReplyQueueFilename = "./data/replyqueue.json";
 
     private static readonly object _lock = new ();
     private static DateTime lastUpdated = DateTime.MinValue;
+
+    public static RedditConfig GetConfig(string filename)
+    {
+        var json = File.ReadAllText(filename);
+        return JsonSerializer.Deserialize<RedditConfig>(json);
+    }
 
     public static List<(string, string, int)> GetReservationData()
     {
@@ -54,5 +60,22 @@ public static class FileSystem
     {
         var json = JsonSerializer.Serialize(replyQueue);
         File.WriteAllText(ReplyQueueFilename, json);
+    }
+
+    public static Queue<BotReply> GetReplyQueue()
+    {
+        if (File.Exists(ReplyQueueFilename))
+        {
+            var json = File.ReadAllText(ReplyQueueFilename);
+
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new Queue<BotReply>();
+            }
+
+            return JsonSerializer.Deserialize<Queue<BotReply>>(json) ?? new Queue<BotReply>();
+        }
+
+        return new Queue<BotReply>();
     }
 }
