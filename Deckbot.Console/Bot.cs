@@ -1,39 +1,47 @@
 ﻿using Reddit;
 using Reddit.Controllers;
 using Reddit.Controllers.EventArgs;
+using Reddit.Exceptions;
 using Serilog;
 
 namespace Deckbot.Console;
 
 public static class Bot
 {
+    private static object _lock = new ();
     private static int commentsSeenCount;
+    private static readonly Queue<(string CommentId, string Reply)> replyQueue = new();
 
     public static void Go()
     {
         var config = ConfigReader.GetConfig("./config/config.json");
         ReservationData = DataReader.GetReservationData();
 
-        var client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret);
+        Client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret, userAgent: "bot:deck_bot:v0.1.0 (by /u/Fammy)");
 
-        BotName = client.Account.Me.Name;
+        BotName = Client.Account.Me.Name;
 
-        var subs = client.Account.MySubscribedSubreddits();
+        var subs = Client.Account.MySubscribedSubreddits();
 
+#if !DEBUG
         foreach (var sub in subs)
         {
             ProcessSub(sub);
         }
+#endif
 
-        var myPosts = client.Account.Me.PostHistory;
+        var myPosts = Client.Account.Me.PostHistory;
         foreach (var post in myPosts)
         {
             ProcessPost(post);
         }
     }
 
-    public static List<(string Model, string Region, int ReserveTime)> ReservationData { get; set; }
+    private static RedditClient Client { get; set; }
+    private static DateTime RateLimitedTime { get; set; } = DateTime.Now - TimeSpan.FromSeconds(120);
     private static string BotName { get; set; }
+
+    public static List<(string Model, string Region, int ReserveTime)> ReservationData { get; private set; }
 
     private static void ProcessSub(Subreddit sub)
     {
@@ -43,7 +51,7 @@ public static class Bot
         sub.Comments.GetNew();
         sub.Comments.NewUpdated += OnNewComment;
         WriteLine($"Monitoring new comments in /r/{sub.Name}...");
-        sub.Comments.MonitorNew(monitoringBaseDelayMs: 5000);
+        sub.Comments.MonitorNew(monitoringBaseDelayMs: 1500);
     }
 
     private static void ProcessPost(Post post)
@@ -52,7 +60,7 @@ public static class Bot
         post.Comments.GetNew();
         post.Comments.NewUpdated += OnNewComment;
         WriteLine($"Monitoring new comments in my post {post.Title}...");
-        post.Comments.MonitorNew(monitoringBaseDelayMs: 5000);
+        post.Comments.MonitorNew(monitoringBaseDelayMs: 1500);
     }
 
     private static void OnNewComment(object? sender, CommentsUpdateEventArgs e)
@@ -71,9 +79,11 @@ public static class Bot
 
                 if (commentsSeenCount % 100 == 0)
                 {
-                    WriteLine($"## Processed {commentsSeenCount} comments");
+                    WriteLine($"Reviewed {commentsSeenCount} comments");
                 }
             }
+
+            ProcessReplyQueue();
         }
         catch (Exception ex)
         {
@@ -82,8 +92,69 @@ public static class Bot
         }
     }
 
+    private static void ProcessReplyQueue()
+    {
+        lock (_lock)
+        {
+            var queueHasItems = replyQueue.Any();
+
+            if (!queueHasItems)
+            {
+                return;
+            }
+
+            WriteLine($"Comments in reply queue: {replyQueue.Count}");
+
+            var lastRateLimited = DateTime.Now - RateLimitedTime;
+            if (lastRateLimited < TimeSpan.FromSeconds(120))
+            {
+                WriteLine($"Skipping reply queue due to rate limit {lastRateLimited.TotalSeconds:F1} seconds ago...");
+                return;
+            }
+
+            var processed = 0;
+
+            while (replyQueue.Count > 0)
+            {
+                var item = replyQueue.Peek();
+
+                var comment = Client.Comment(item.CommentId);
+                try
+                {
+                    comment.Reply(item.Reply);
+                    //WriteLine($"--> Replied: {item.Reply}");
+
+                    replyQueue.Dequeue();
+                    processed++;
+                }
+                catch (RedditRateLimitException ex)
+                {
+                    RateLimitedTime = DateTime.Now;
+
+                    System.Console.WriteLine(ex);
+                    Log.Error(ex, $"Rate Limited, processed {processed}/{replyQueue.Count} comments in the reply queue");
+
+                    return;
+                }
+                catch (RedditControllerException ex)
+                {
+                    replyQueue.Dequeue();
+
+                    System.Console.WriteLine(ex);
+                    Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{replyQueue.Count} comments in the reply queue");
+
+                    return;
+                }
+            }
+
+            WriteLine($"Made it through the queue, processed {processed}/{replyQueue.Count}");
+        }
+    }
+
     private static void ParseComment(Comment comment)
     {
+        if (string.IsNullOrWhiteSpace(comment.Body) || string.IsNullOrWhiteSpace(comment.Author)) return;
+
         if (comment.Author.Equals(BotName, StringComparison.CurrentCultureIgnoreCase)) return;
 
         var command = new BotCommand();
@@ -95,15 +166,19 @@ public static class Bot
             return;
         }
 
-        WriteLine($"{comment.Author} @ {comment.Created}: {comment.Body.Substring(0, Math.Min(comment.Body.Length, 100))}");
+        WriteLine($"/u/{comment.Author}: {comment.Body.Substring(0, Math.Min(comment.Body.Length, 100))}");
 
         if (!string.IsNullOrWhiteSpace(reply))
         {
+            // TODO: not working
             //if (AlreadyReplied(comment)) return;
 
-            WriteLine($"--> Replied: {reply}");
-            // TODO
-            comment.Reply(reply);
+            //comment.Reply(reply);
+            //WriteLine($"--> Replied: {reply}");
+            lock (_lock)
+            {
+                replyQueue.Enqueue((comment.Fullname, reply));
+            }
         }
     }
 

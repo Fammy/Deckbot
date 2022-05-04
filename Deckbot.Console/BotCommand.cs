@@ -1,7 +1,5 @@
-﻿using System.Reflection.Metadata.Ecma335;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Reddit.Controllers;
-using Serilog;
 
 namespace Deckbot.Console;
 
@@ -30,7 +28,7 @@ public class BotCommand
         foreach (var command in commands)
         {
 #if DEBUG
-            var pattern = command.Pattern.Replace("deckbot", @"debug\.deckbot").Replace("deck_bot", @"debug\.deck_bot");
+            var pattern = command.Pattern.Replace("deckbot", @"debugdeckbot").Replace("deck_bot", @"debugdeck_bot");
 #else
             var pattern = command.Pattern;
 #endif
@@ -47,15 +45,15 @@ public class BotCommand
 
     private static string NullResponse(Comment comment, Match match)
     {
-        var body = comment.Body;
+        /*var body = comment.Body;
 
         System.Console.WriteLine($"\n## {body}\n");
-        Log.Information(body);
+        Log.Information(body);*/
 
         return string.Empty;
     }
 
-    private static string HelpRequest(Comment comment, Match match) => @$"Hi, I'm deck_bot. Here's what you can do with me:
+    private static string HelpRequest(Comment comment, Match match) => @"Hi, I'm deckbot. Here's what you can do with me:
 
 Find out how far the order queue is to your order: `!deckbot region model rtReserveTime`
 
@@ -94,11 +92,6 @@ I only respond in /r/SteamDeck
 
         var timeAfterSeconds = reserveTime - PreOrderStartTime;
 
-        if (timeAfterSeconds < 0)
-        {
-            return string.Empty;
-        }
-
         var timeAfter = new TimeSpan(0, 0, timeAfterSeconds);
 
         var bestTime = GetBestTimeForRegionAndModel(region, model);
@@ -114,9 +107,17 @@ I only respond in /r/SteamDeck
         var timeLeftStr = FormatTime(timeLeft);
         var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
 
-        var closing = percent >= 90 ? "! Soon™️" : ".";
+        var closing = percent >= 90 ? "! " + PickRandomly("Soon™️", "👀", "So close!", "Get hype") : ".";
 
         return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
+    }
+
+    private static string PickRandomly(params string[] options)
+    {
+        var random = new Random();
+        var index = random.Next(1, options.Length) - 1;
+
+        return options[index];
     }
 
     private static bool IsInFuture(int seconds)

@@ -159,5 +159,15 @@ namespace Deckbot.Test
         {
             Assert.IsTrue(Regex.IsMatch(message, RegexConsts.Thanks, RegexOptions.IgnoreCase));
         }
+
+        [TestMethod]
+        [DataRow("!debug.deckbot 64 US 1626412345")]
+        [DataRow("!debug.deck_bot 64 US 1626412345")]
+        public void Debug(string message)
+        {
+            var pattern = RegexConsts.ModelRegionTime.Replace("deckbot", @"debug\.deckbot").Replace("deck_bot", @"debug\.deck_bot");
+
+            Assert.IsTrue(Regex.IsMatch(message, pattern, RegexOptions.IgnoreCase));
+        }
     }
 }
