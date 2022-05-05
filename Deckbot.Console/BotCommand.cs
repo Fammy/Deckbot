@@ -107,9 +107,13 @@ I only respond in /r/SteamDeck
         var timeLeftStr = FormatTime(timeLeft);
         var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
 
-        var closing = percent >= 90 ? "! " + PickRandomly("Soon™️", "👀", "So close!", "Get hype") : ".";
+        var greeting = PickRandomly("Hi!", "Howdy!", "Hello!", "Greetings!");
+        var closing = percent >= 90 ?
+            "! " + PickRandomly("Soon™️", "👀", "So close!", "Get hype") :
+            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!"):
+        ".";
 
-        return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
+        return $@"{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
     }
 
     private static string PickRandomly(params string[] options)

@@ -144,12 +144,10 @@ public static class Bot
 
             var queueSize = replyQueue.Count;
 
-            WriteLine($"Comments in reply queue: {queueSize}");
-
             var lastRateLimited = DateTime.Now - RateLimitedTime;
             if (lastRateLimited < TimeSpan.FromSeconds(Config.RateLimitCooldown))
             {
-                WriteLine($"Skipping reply queue due to rate limit {lastRateLimited.TotalSeconds:F1} seconds ago...");
+                WriteLine($"Skipping reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}");
                 return;
             }
 
