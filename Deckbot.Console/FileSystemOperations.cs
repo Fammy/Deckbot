@@ -10,7 +10,7 @@ public static class FileSystemOperations
     private static readonly object _lock = new ();
     private static DateTime lastUpdated = DateTime.MinValue;
 
-    public static RedditConfig GetConfig(string filename)
+    public static RedditConfig? GetConfig(string filename)
     {
         var json = File.ReadAllText(filename);
         return JsonSerializer.Deserialize<RedditConfig>(json);

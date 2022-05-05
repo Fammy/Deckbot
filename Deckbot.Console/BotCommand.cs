@@ -127,6 +127,11 @@ I only respond in /r/SteamDeck
 
     private static int GetBestTimeForRegionAndModel(string region, string model)
     {
+        if (Bot.ReservationData == null)
+        {
+            throw new ArgumentException($"nameof(Bot.ReservationData) is null");
+        }
+
         var match = Bot.ReservationData.Single(d => d.Model.Equals(model, StringComparison.CurrentCultureIgnoreCase) &&
                                                                   d.Region.Equals(region, StringComparison.CurrentCultureIgnoreCase));
         return match.ReserveTime;

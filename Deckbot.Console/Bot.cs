@@ -8,20 +8,27 @@ namespace Deckbot.Console;
 
 public static class Bot
 {
-    private static object _lock = new();
+    private static readonly object _lock = new();
     private static int commentsSeenCount;
     private static Queue<BotReply> replyQueue = new();
 
-    private static RedditConfig Config { get; set; }
-    private static RedditClient Client { get; set; }
+    private static RedditConfig? Config { get; set; }
+    private static RedditClient? Client { get; set; }
     private static DateTime RateLimitedTime { get; set; }
-    private static string BotName { get; set; }
+    private static string? BotName { get; set; }
 
-    public static List<(string Model, string Region, int ReserveTime)> ReservationData { get; private set; }
+    public static List<(string Model, string Region, int ReserveTime)>? ReservationData { get; private set; }
 
     public static void Go()
     {
         Config = FileSystemOperations.GetConfig("./config/config.json");
+
+        if (Config == null)
+        {
+            WriteLine("Cannot read './config/config.json'");
+            return;
+        }
+
         ReservationData = FileSystemOperations.GetReservationData();
         Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.2.0 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
@@ -119,6 +126,11 @@ public static class Bot
 
     private static void ProcessReplyQueue()
     {
+        if (Config == null || Client == null)
+        {
+            return;
+        }
+
         lock (_lock)
         {
             FileSystemOperations.WriteReplyQueue(replyQueue);

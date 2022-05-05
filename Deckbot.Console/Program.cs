@@ -11,7 +11,7 @@ Log.Logger = new LoggerConfiguration()
 
 Bot.Go();
 
-void MakeDirectory(string path)
+static void MakeDirectory(string path)
 {
     path = $"./{path}";
 
