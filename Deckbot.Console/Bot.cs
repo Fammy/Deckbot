@@ -42,7 +42,7 @@ public static class Bot
         }
 
 #if !DEBUG
-        if (config.MonitorSubreddit)
+        if (Config.MonitorSubreddit)
         {
             var subs = Client.Account.MySubscribedSubreddits();
 
