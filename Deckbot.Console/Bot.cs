@@ -8,16 +8,23 @@ namespace Deckbot.Console;
 
 public static class Bot
 {
-    private const int RateLimitCooldown = 120;
     private static object _lock = new();
     private static int commentsSeenCount;
     private static Queue<BotReply> replyQueue = new();
 
+    private static RedditConfig Config { get; set; }
+    private static RedditClient Client { get; set; }
+    private static DateTime RateLimitedTime { get; set; }
+    private static string BotName { get; set; }
+
+    public static List<(string Model, string Region, int ReserveTime)> ReservationData { get; private set; }
+
     public static void Go()
     {
-        var config = FileSystemOperations.GetConfig("./config/config.json");
+        Config = FileSystemOperations.GetConfig("./config/config.json");
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(config.AppId, config.RefreshToken, config.AppSecret, userAgent: "bot:deck_bot:v0.1.2 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.2.0 (by /u/Fammy)");
+        RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
 
         BotName = Client.Account.Me.Name;
 
@@ -27,27 +34,35 @@ public static class Bot
             WriteLine($"Restored {replyQueue.Count} replies from disk...");
         }
 
-        var subs = Client.Account.MySubscribedSubreddits();
-
 #if !DEBUG
-        foreach (var sub in subs)
+        if (config.MonitorSubreddit)
         {
-            ProcessSub(sub);
+            var subs = Client.Account.MySubscribedSubreddits();
+
+            foreach (var sub in subs)
+            {
+                ProcessSub(sub);
+            }
         }
 #endif
 
-        var myPosts = Client.Account.Me.PostHistory;
-        foreach (var post in myPosts)
+        if (Config.MonitorBotUserPosts)
         {
-            ProcessPost(post);
+            var myPosts = Client.Account.Me.PostHistory;
+            foreach (var post in myPosts)
+            {
+                ProcessPost(post);
+            }
+        }
+
+        if (Config.PostsToMonitor != null)
+        {
+            foreach (var postId in Config.PostsToMonitor)
+            {
+                ProcessPost(Client.Post($"t3_{postId}"));
+            }
         }
     }
-
-    private static RedditClient Client { get; set; }
-    private static DateTime RateLimitedTime { get; set; } = DateTime.Now - TimeSpan.FromSeconds(RateLimitCooldown);
-    private static string BotName { get; set; }
-
-    public static List<(string Model, string Region, int ReserveTime)> ReservationData { get; private set; }
 
     private static void ProcessSub(Subreddit sub)
     {
@@ -62,11 +77,20 @@ public static class Bot
 
     private static void ProcessPost(Post post)
     {
-        WriteLine($"Flushing new comments in my post {post.Title}...");
+        WriteLine($"Flushing new comments in my post {post.Title ?? post.Fullname}...");
         post.Comments.GetNew();
         post.Comments.NewUpdated += OnNewComment;
-        WriteLine($"Monitoring new comments in my post {post.Title}...");
+        WriteLine($"Monitoring new comments in my post {post.Title ?? post.Fullname}...");
         post.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
+    }
+
+    private static void ProcessComment(Comment comment)
+    {
+        WriteLine($"Flushing new comments in comment {comment.Fullname}...");
+        comment.Comments.GetNew();
+        comment.Comments.NewUpdated += OnNewComment;
+        WriteLine($"Monitoring new comments in comment {comment.Fullname}...");
+        comment.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
 
     private static void OnNewComment(object? sender, CommentsUpdateEventArgs e)
@@ -111,9 +135,9 @@ public static class Bot
             WriteLine($"Comments in reply queue: {queueSize}");
 
             var lastRateLimited = DateTime.Now - RateLimitedTime;
-            if (lastRateLimited < TimeSpan.FromSeconds(RateLimitCooldown))
+            if (lastRateLimited < TimeSpan.FromSeconds(Config.RateLimitCooldown))
             {
-                WriteLine($"Skipping reply queue for {RateLimitCooldown} seconds due to rate limit {lastRateLimited.TotalSeconds:F1} seconds ago...");
+                WriteLine($"Skipping reply queue due to rate limit {lastRateLimited.TotalSeconds:F1} seconds ago...");
                 return;
             }
 
@@ -133,7 +157,7 @@ public static class Bot
                     replyQueue.Dequeue();
                     processed++;
 
-                    Thread.Sleep(500);
+                    Thread.Sleep(Config.ReplyCooldownMs);
                 }
                 catch (RedditRateLimitException ex)
                 {
