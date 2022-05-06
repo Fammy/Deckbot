@@ -5,7 +5,13 @@ VisualStudioVersion = 17.1.32421.90
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Deckbot.Console", "Deckbot.Console\Deckbot.Console.csproj", "{AAB804AC-17E5-4722-A575-743BEE7E0D5D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deckbot.Test", "Deckbot.Test\Deckbot.Test.csproj", "{444AFE39-3166-40EA-9B3A-AE4999A83FF1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Deckbot.Test", "Deckbot.Test\Deckbot.Test.csproj", "{444AFE39-3166-40EA-9B3A-AE4999A83FF1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3EC27CB3-A73E-4D3A-AD41-ABB4AA382561}"
+	ProjectSection(SolutionItems) = preProject
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
