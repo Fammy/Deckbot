@@ -99,7 +99,7 @@ I only respond in /r/SteamDeck
 
         var timeAfterStr = FormatTime(timeAfter);
 
-        if (timeLeft.TotalSeconds <= 0)
+        if (timeLeft.TotalSeconds < 0)
         {
             return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet?";
         }

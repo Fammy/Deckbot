@@ -30,7 +30,7 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.2.0 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.2.1 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
 
         BotName = Client.Account.Me.Name;
