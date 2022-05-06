@@ -16,6 +16,7 @@ public static class Bot
     private static RedditClient? Client { get; set; }
     private static DateTime RateLimitedTime { get; set; }
     private static string? BotName { get; set; }
+    private static List<string> ValidPostsIds { get; set; } = new();
 
     public static List<(string Model, string Region, int ReserveTime)>? ReservationData { get; private set; }
 
@@ -30,10 +31,14 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.3.0 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.3.1 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
-
         BotName = Client.Account.Me.Name;
+
+        if (Config.PostsToMonitor != null)
+        {
+            ValidPostsIds.AddRange(Config.PostsToMonitor);
+        }
 
         lock (_lock)
         {
@@ -41,7 +46,6 @@ public static class Bot
             WriteLine($"Restored {replyQueue.Count} replies from disk...");
         }
 
-#if !DEBUG
         if (Config.MonitorSubreddit)
         {
             var subs = Client.Account.MySubscribedSubreddits();
@@ -51,22 +55,24 @@ public static class Bot
                 ProcessSub(sub);
             }
         }
-#endif
+        else
+        {
+            if (Config.PostsToMonitor != null)
+            {
+                foreach (var postId in Config.PostsToMonitor)
+                {
+                    ProcessPost(Client.Post($"t3_{postId}"));
+                }
+            }
+        }
 
         if (Config.MonitorBotUserPosts)
         {
             var myPosts = Client.Account.Me.PostHistory;
             foreach (var post in myPosts)
             {
+                ValidPostsIds.Add(post.Id);
                 ProcessPost(post);
-            }
-        }
-
-        if (Config.PostsToMonitor != null)
-        {
-            foreach (var postId in Config.PostsToMonitor)
-            {
-                ProcessPost(Client.Post($"t3_{postId}"));
             }
         }
     }
@@ -84,10 +90,10 @@ public static class Bot
 
     private static void ProcessPost(Post post)
     {
-        WriteLine($"Flushing new comments in my post {post.Title ?? post.Fullname}...");
-        post.Comments.GetNew();
+        WriteLine($"Flushing new comments in post {post.Title ?? post.Fullname}...");
+        post.Comments.GetNew(threaded: false);
         post.Comments.NewUpdated += OnNewComment;
-        WriteLine($"Monitoring new comments in my post {post.Title ?? post.Fullname}...");
+        WriteLine($"Monitoring new comments in post {post.Title ?? post.Fullname}...");
         post.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
 
@@ -107,7 +113,14 @@ public static class Bot
             foreach (var comment in e.Added)
             {
                 commentsSeenCount++;
-                ParseComment(comment);
+
+                if (CommentIsInAuthorizedPost(comment.Permalink))
+                {
+#if DEBUG
+                    WriteLine($"/u/{comment.Author}: {comment.Body.Substring(0, Math.Min(25, comment.Body.Length))}");
+#endif
+                    ParseComment(comment);
+                }
 
                 if (commentsSeenCount % 100 == 0)
                 {
@@ -122,6 +135,16 @@ public static class Bot
             System.Console.WriteLine($"\nException: {ex}");
             Log.Error(ex, "Error processing comments");
         }
+    }
+
+    private static bool CommentIsInAuthorizedPost(string permalink)
+    {
+        if (ValidPostsIds.Count == 0)
+        {
+            return false;
+        }
+
+        return ValidPostsIds.Any(postId => permalink.Contains($"/{postId}/"));
     }
 
     private static void ProcessReplyQueue()

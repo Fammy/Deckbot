@@ -44,8 +44,8 @@ Find out how far the order queue is to your order: `!deckbot region model rtRese
 
 Example: `!deckbot US 64 1626460525`
 
-* region must be US, UK, or EU
-* model must be 64, 256, or 512
+* region must be `US`, `UK`, or `EU`
+* model must be `64`, `256`, or `512`
 * rtReserveTime must be a valid 10 digit epoch number, in the starting with 16.
 
 If you don't have your `rtReserveTime`, here's how to get it:

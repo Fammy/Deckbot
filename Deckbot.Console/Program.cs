@@ -6,7 +6,7 @@ MakeDirectory("config");
 MakeDirectory("logs");
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.File("./logs/deckbot.log")
+    .WriteTo.File("./logs/deckbot.log", rollOnFileSizeLimit: true, fileSizeLimitBytes: 1000 * 1000) // Rollover at a meg
     .CreateLogger();
 
 Bot.Go();
