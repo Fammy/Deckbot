@@ -15,12 +15,7 @@ public class BotCommand
         (RegexConsts.TimeRegionModel, ReserveTimeRequest),
         (RegexConsts.RegionTimeModel, ReserveTimeRequest),
         (RegexConsts.ModelTimeRegion, ReserveTimeRequest),
-        //(RegexConsts.Thanks, ThanksRequest),
-        (RegexConsts.Help, HelpRequest),
-        //(@"16[0-9]{8}", NullResponse),
-        //(@"rtReserveTime", NullResponse),
-        //(@"fammy", NullResponse),
-        //(@"(!deckbot|!deck_bot)", HelpRequest),
+        (RegexConsts.Help, HelpRequest)
     };
 
     public (bool Success, string Reply) ProcessComment(Comment comment)
@@ -43,16 +38,6 @@ public class BotCommand
         return (false, string.Empty);
     }
 
-    private static string NullResponse(Comment comment, Match match)
-    {
-        /*var body = comment.Body;
-
-        System.Console.WriteLine($"\n## {body}\n");
-        Log.Information(body);*/
-
-        return string.Empty;
-    }
-
     private static string HelpRequest(Comment comment, Match match) => @"Hi, I'm deckbot. Here's what you can do with me:
 
 Find out how far the order queue is to your order: `!deckbot region model rtReserveTime`
@@ -63,7 +48,11 @@ Example: `!deckbot US 64 1626460525`
 * model must be 64, 256, or 512
 * rtReserveTime must be a valid 10 digit epoch number, in the starting with 16.
 
-I only respond in /r/SteamDeck
+If you don't have your `rtReserveTime`, here's how to get it:
+
+* Log into the [Steam website](https://store.steampowered.com/)
+* Go to this [API link](https://store.steampowered.com/reservation/ajaxgetuserstate?rgReservationPackageIDs=%5B595603,595604,595605%5D). It should be a bunch of data. If you only see `{""success"":21}` then you aren't logged in. Repeat Step 1.
+* Find the text `rtReserveTime` and copy the number immediately after. It will start with 16 and is ten digits long, like `1626460525` If the number is 0, then you've ordered yours and it's too late to find it.
 
 *(I'm in beta. Direct feedback to Fammy.)*";
 
@@ -82,12 +71,12 @@ I only respond in /r/SteamDeck
 
         if (IsInFuture(reserveTime))
         {
-            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off.";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.";
         }
 
         if (reserveTime < PreOrderStartTime)
         {
-            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off.";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.";
         }
 
         var timeAfterSeconds = reserveTime - PreOrderStartTime;
@@ -101,16 +90,22 @@ I only respond in /r/SteamDeck
 
         if (timeLeft.TotalSeconds < 0)
         {
-            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet?";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. Order emails have likely passed your time. Have you received your order email yet? If not, you have an incorrect rtReserveTime. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.";
+        }
+
+        if (timeLeft.TotalSeconds == 0)
+        {
+            return $@"Whoa!! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **0** worth of pre-orders before yours remaining. You may or may not have received your order email. If you haven't, you should next batch!";
         }
 
         var timeLeftStr = FormatTime(timeLeft);
         var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
 
-        var greeting = PickRandomly("Hi!", "Howdy!", "Hello!", "Greetings!");
+        var greeting = PickRandomly("Hi!", "Howdy!", "Hello!", "Greetings!", "Hola!", "Ciao!");
         var closing = percent >= 90 ?
             "! " + PickRandomly("Soon™️", "👀", "So close!", "Get hype") :
-            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!"):
+            percent.ToString().StartsWith("50.") ? ". Perfectly balanced" :
+            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp"):
         ".";
 
         return $@"{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
@@ -133,7 +128,7 @@ I only respond in /r/SteamDeck
     {
         if (Bot.ReservationData == null)
         {
-            throw new ArgumentException($"nameof(Bot.ReservationData) is null");
+            throw new ArgumentException($"{nameof(Bot.ReservationData)} is null");
         }
 
         var match = Bot.ReservationData.Single(d => d.Model.Equals(model, StringComparison.CurrentCultureIgnoreCase) &&
@@ -163,12 +158,5 @@ I only respond in /r/SteamDeck
         }
 
         return $"{currentStr}, {length} {unit}{s}";
-    }
-
-    private static string ThanksRequest(Comment comment, Match match)
-    {
-        if (comment.Body.Contains("no")) return string.Empty;
-
-        return @$"You're welcome {comment.Author}!";
     }
 }

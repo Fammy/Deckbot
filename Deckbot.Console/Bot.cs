@@ -30,7 +30,7 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.2.1 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.3.0 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
 
         BotName = Client.Account.Me.Name;
@@ -162,7 +162,6 @@ public static class Bot
                 try
                 {
                     comment.Reply(reply.Reply);
-                    //WriteLine($"--> Replied: {item.Reply}");
 
                     replyQueue.Dequeue();
                     processed++;
@@ -219,11 +218,8 @@ public static class Bot
 
         if (!string.IsNullOrWhiteSpace(reply))
         {
-            // TODO: not working
-            //if (AlreadyReplied(comment)) return;
+            // TODO: don't process if already replied, which may consume too many API calls
 
-            //comment.Reply(reply);
-            //WriteLine($"--> Replied: {reply}");
             lock (_lock)
             {
                 replyQueue.Enqueue(new BotReply
@@ -233,15 +229,6 @@ public static class Bot
                 });
             }
         }
-    }
-
-    private static bool AlreadyReplied(Comment comment)
-    {
-        var replies = comment.Comments.GetNew();
-
-        if (replies.Count == 0) return false;
-
-        return replies.Any(c => c.Author == BotName);
     }
 
     private static void WriteLine(string text)
