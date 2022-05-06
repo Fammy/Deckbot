@@ -15,6 +15,8 @@ Please use Reddit bots responsibly.
 
 ### config\config.json
 
+Bot reads this at startup to get config values.
+
 ```
 {
 	"AppId": "", // Your AppId from your Reddit app
@@ -34,6 +36,8 @@ Please use Reddit bots responsibly.
 ### config\data.tsv
 
 Data copied from https://docs.google.com/spreadsheets/d/1ZaKncig9fce7K0sr1f-E2_sgLH1HuKQ-q3k7clPMOCs/edit#gid=3349187&range=A1:C9
+
+Bot will read this periodically, so it can be updated while running.
 
 Should look like this and should have tabs between values
 
