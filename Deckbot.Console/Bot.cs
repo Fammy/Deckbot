@@ -31,7 +31,7 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.3.1 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.0 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
@@ -52,7 +52,7 @@ public static class Bot
 
             foreach (var sub in subs)
             {
-                ProcessSub(sub);
+                MonitorSub(sub);
             }
         }
         else
@@ -61,7 +61,7 @@ public static class Bot
             {
                 foreach (var postId in Config.PostsToMonitor)
                 {
-                    ProcessPost(Client.Post($"t3_{postId}"));
+                    MonitorPost(Client.Post($"t3_{postId}"));
                 }
             }
         }
@@ -72,12 +72,17 @@ public static class Bot
             foreach (var post in myPosts)
             {
                 ValidPostsIds.Add(post.Id);
-                ProcessPost(post);
+                MonitorPost(post);
             }
+        }
+
+        if (Config.MonitorBotPrivateMessages)
+        {
+            MonitorPrivateMessages(Client.Account);
         }
     }
 
-    private static void ProcessSub(Subreddit sub)
+    private static void MonitorSub(Subreddit sub)
     {
         if (sub.Name.Equals("Announcements", StringComparison.CurrentCultureIgnoreCase)) return;
 
@@ -88,22 +93,52 @@ public static class Bot
         sub.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
 
-    private static void ProcessPost(Post post)
+    private static void MonitorPost(Post post)
     {
         WriteLine($"Flushing new comments in post {post.Title ?? post.Fullname}...");
-        post.Comments.GetNew(threaded: false);
+        post.Comments.GetNew();
         post.Comments.NewUpdated += OnNewComment;
         WriteLine($"Monitoring new comments in post {post.Title ?? post.Fullname}...");
         post.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
 
-    private static void ProcessComment(Comment comment)
+    private static void MonitorPrivateMessages(Account account)
     {
-        WriteLine($"Flushing new comments in comment {comment.Fullname}...");
-        comment.Comments.GetNew();
-        comment.Comments.NewUpdated += OnNewComment;
-        WriteLine($"Monitoring new comments in comment {comment.Fullname}...");
-        comment.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
+        WriteLine($"Flushing new private messages...");
+        account.Messages.GetMessagesUnread();
+        account.Messages.UnreadUpdated += MessagesUpdated;
+        WriteLine($"Monitoring new private messages...");
+        account.Messages.MonitorUnread(monitoringBaseDelayMs: 15000);
+    }
+
+    private static void MessagesUpdated(object? sender, MessagesUpdateEventArgs e)
+    {
+        try
+        {
+            foreach (var message in e.Added)
+            {
+                commentsSeenCount++;
+
+                var request = new IncomingRequest(message.Author, message.Body, message.Fullname);
+
+#if DEBUG
+                WriteLine($"/u/{request.Author}: {message.Body.Substring(0, Math.Min(25, request.Body.Length))}");
+#endif
+                ParseIncomingRequest(request);
+
+                if (commentsSeenCount % 100 == 0)
+                {
+                    WriteLine($"Reviewed {commentsSeenCount} comments");
+                }
+            }
+
+            ProcessReplyQueue();
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine($"\nException: {ex}");
+            Log.Error(ex, "Error processing private messages");
+        }
     }
 
     private static void OnNewComment(object? sender, CommentsUpdateEventArgs e)
@@ -114,12 +149,14 @@ public static class Bot
             {
                 commentsSeenCount++;
 
+                var request = new IncomingRequest(comment.Author, comment.Body, comment.Fullname);
+
                 if (CommentIsInAuthorizedPost(comment.Permalink))
                 {
 #if DEBUG
-                    WriteLine($"/u/{comment.Author}: {comment.Body.Substring(0, Math.Min(25, comment.Body.Length))}");
+                    WriteLine($"/u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
-                    ParseComment(comment);
+                    ParseIncomingRequest(request);
                 }
 
                 if (commentsSeenCount % 100 == 0)
@@ -180,10 +217,9 @@ public static class Bot
             {
                 var reply = replyQueue.Peek();
 
-                var comment = Client.Comment(reply.CommentId);
-
                 try
                 {
+                    var comment = Client.Comment(reply.CommentId);
                     comment.Reply(reply.Reply);
 
                     replyQueue.Dequeue();
@@ -217,11 +253,11 @@ public static class Bot
         }
     }
 
-    private static void ParseComment(Comment comment)
+    private static void ParseIncomingRequest(IncomingRequest request)
     {
-        if (string.IsNullOrWhiteSpace(comment.Body) || string.IsNullOrWhiteSpace(comment.Author)) return;
+        if (string.IsNullOrWhiteSpace(request.Body) || string.IsNullOrWhiteSpace(request.Author)) return;
 
-        if (comment.Author.Equals(BotName, StringComparison.CurrentCultureIgnoreCase)) return;
+        if (request.Author.Equals(BotName, StringComparison.CurrentCultureIgnoreCase)) return;
 
         if (FileSystemOperations.ReservationDataNeedsUpdate)
         {
@@ -230,14 +266,16 @@ public static class Bot
 
         var command = new BotCommand();
 
-        var (success, reply) = command.ProcessComment(comment);
+        var (success, reply) = command.ProcessComment(request);
 
         if (!success)
         {
             return;
         }
 
-        WriteLine($"/u/{comment.Author}: {comment.Body.Substring(0, Math.Min(comment.Body.Length, 100))}");
+#if !DEBUG
+        WriteLine($"/u/{request.Author}: {request.Body.Substring(0, Math.Min(request.Body.Length, 100))}");
+#endif
 
         if (!string.IsNullOrWhiteSpace(reply))
         {
@@ -247,7 +285,7 @@ public static class Bot
             {
                 replyQueue.Enqueue(new BotReply
                 {
-                    CommentId = comment.Fullname,
+                    CommentId = request.MessageId,
                     Reply = reply
                 });
             }

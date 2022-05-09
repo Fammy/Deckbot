@@ -7,7 +7,7 @@ public class BotCommand
 {
     private const int PreOrderStartTime = 1626454800;
 
-    private readonly List<(string Pattern, Func<Comment, Match, string> ReplyFunc)> commands = new()
+    private readonly List<(string Pattern, Func<Match, string> ReplyFunc)> commands = new()
     {
         (RegexConsts.RegionModelTime, ReserveTimeRequest),
         (RegexConsts.ModelRegionTime, ReserveTimeRequest),
@@ -18,7 +18,7 @@ public class BotCommand
         (RegexConsts.Help, HelpRequest)
     };
 
-    public (bool Success, string Reply) ProcessComment(Comment comment)
+    public (bool Success, string Reply) ProcessComment(IncomingRequest request)
     {
         foreach (var command in commands)
         {
@@ -28,17 +28,17 @@ public class BotCommand
             var pattern = command.Pattern;
 #endif
 
-            var match = Regex.Match(comment.Body, pattern, RegexOptions.IgnoreCase);
+            var match = Regex.Match(request.Body, pattern, RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                return (true, command.ReplyFunc(comment, match));
+                return (true, command.ReplyFunc(match));
             }
         }
 
         return (false, string.Empty);
     }
 
-    private static string HelpRequest(Comment comment, Match match) => @"Hi, I'm deckbot. Here's what you can do with me:
+    private static string HelpRequest(Match match) => @"Hi, I'm deckbot. Here's what you can do with me:
 
 Find out how far the order queue is to your order: `!deckbot region model rtReserveTime`
 
@@ -56,7 +56,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
 
 *(I'm in beta. Direct feedback to Fammy.)*";
 
-    private static string ReserveTimeRequest(Comment comment, Match match)
+    private static string ReserveTimeRequest(Match match)
     {
         var region = match.Groups["region"].ToString().ToUpper();
         var model = match.Groups["model"].ToString().ToUpper();
