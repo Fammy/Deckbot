@@ -245,6 +245,13 @@ public static class Bot
                     System.Console.WriteLine(ex);
                     Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{queueSize} comments in the reply queue");
                 }
+                catch (RedditForbiddenException ex)
+                {
+                    replyQueue.Dequeue();
+
+                    System.Console.WriteLine(ex);
+                    Log.Error(ex, $"Forbidden exception, discarding comment. Processed {processed}/{queueSize} comments in the reply queue");
+                }
             }
 
             WriteLine($"Made it through the queue, processed {processed}/{queueSize}");
