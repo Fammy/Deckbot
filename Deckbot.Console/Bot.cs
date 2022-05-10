@@ -1,4 +1,5 @@
-﻿using Reddit;
+﻿using Deckbot.Console.Models;
+using Reddit;
 using Reddit.Controllers;
 using Reddit.Controllers.EventArgs;
 using Reddit.Exceptions;
@@ -31,7 +32,7 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.0 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.2 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
@@ -231,8 +232,15 @@ public static class Bot
                 {
                     RateLimitedTime = DateTime.Now;
 
+                    var behindMessage = string.Empty;
+                    if (reply.ReplyTime.HasValue)
+                    {
+                        var behindTime = DateTime.Now - reply.ReplyTime.Value;
+                        behindMessage = $". Deckbot is {behindTime.Hours:D2}:{behindTime.Minutes:D2}:{behindTime.Seconds:D2} behind";
+                    }
+
                     System.Console.WriteLine(ex);
-                    Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} comments in the reply queue");
+                    Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} comments in the reply queue{behindMessage}");
 
                     FileSystemOperations.WriteReplyQueue(replyQueue);
 

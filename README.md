@@ -26,7 +26,8 @@ Bot reads this at startup to get config values.
 	"RateLimitCooldown": 120, // If the bot is rate limited, wait this may seconds to try agian
 	"ReplyCooldownMs": 1000, // Number of milliseconds (1000 = 1 second) to wait between posting replies
 	"MonitorSubreddit": false, // If true, monitors all subreddits the user/bot is subscribed to for authorized posts in `PostsToMonitor` below. More work, but will find all comments and not top-level comments.
-	"MonitorBotUserPosts": false, // Monitor all user posts by the bot
+	"MonitorBotUserPosts": false, // Monitor all user/self posts by the bot
+	"MonitorBotPrivateMessages": false, // Monitor bot's Private Messages
 	"PostsToMonitor": [
 		"ui642q" // Specific posts to monitor. Get from the post URL. Must have at least one or set `MonitorBotUserPosts` to true and have the bot make a self-post.
 	]
@@ -55,7 +56,7 @@ Should look like this and should have tabs between values
 
 ## Notes
 
-* When running in debug, the bot will respond to `!debugdeckbot` instead of `deckbot`
+* When running in debug, the bot will respond to `!debugdeckbot` instead of `!deckbot`
 * When the bot starts, it "flushes" all comments in the post so it won't respond to the same things twice. It still replies twice occasionally. It can miss new comments this way.
 * Two folders are created at runtime: `logs` and `data`. Logs contains logs (duh) and data contains a cache of replies to send if the bot is rate limited.
 * I threw this together quickly and was using it as a playground for some of the newer C# features. It's a little messier than I'd like, but that's how code goes.

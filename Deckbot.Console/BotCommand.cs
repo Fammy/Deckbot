@@ -1,5 +1,5 @@
 ﻿using System.Text.RegularExpressions;
-using Reddit.Controllers;
+using Deckbot.Console.Models;
 
 namespace Deckbot.Console;
 

@@ -1,4 +1,4 @@
-﻿namespace Deckbot.Console;
+﻿namespace Deckbot.Console.Models;
 
 public class IncomingRequest
 {
