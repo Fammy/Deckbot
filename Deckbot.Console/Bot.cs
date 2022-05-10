@@ -32,7 +32,7 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.2 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.3 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
@@ -248,6 +248,8 @@ public static class Bot
                 }
                 catch (RedditControllerException ex)
                 {
+                    FileSystemOperations.WriteException("controller_exception", reply, ex);
+
                     replyQueue.Dequeue();
 
                     System.Console.WriteLine(ex);
@@ -255,6 +257,8 @@ public static class Bot
                 }
                 catch (RedditForbiddenException ex)
                 {
+                    FileSystemOperations.WriteException("forbidden_exception", reply, ex);
+
                     replyQueue.Dequeue();
 
                     System.Console.WriteLine(ex);
@@ -301,7 +305,8 @@ public static class Bot
                 replyQueue.Enqueue(new BotReply
                 {
                     CommentId = request.MessageId,
-                    Reply = reply
+                    Reply = reply,
+                    ReplyTime = DateTime.Now
                 });
             }
         }

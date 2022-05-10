@@ -7,8 +7,9 @@ public static class FileSystemOperations
 {
     private const string ReservationDataFilename = "./config/data.tsv";
     private const string ReplyQueueFilename = "./data/replyqueue.json";
+    private const string ErrorFilename = "./logs/{0}.log";
 
-    private static readonly object _lock = new ();
+    private static readonly object _lock = new();
     private static DateTime lastUpdated = DateTime.MinValue;
 
     public static RedditConfig? GetConfig(string filename)
@@ -46,7 +47,7 @@ public static class FileSystemOperations
             if (DateTime.Now - lastUpdated > TimeSpan.FromMinutes(5))
             {
                 var fileInfo = new FileInfo(ReservationDataFilename);
-                
+
                 if (fileInfo.LastWriteTime >= lastUpdated)
                 {
                     return true;
@@ -78,5 +79,17 @@ public static class FileSystemOperations
         }
 
         return new Queue<BotReply>();
+    }
+
+    public static void WriteException(string filename, BotReply reply, Exception ex)
+    {
+        lock (_lock)
+        {
+            var errorFilename = string.Format(ErrorFilename, filename);
+
+            var json = JsonConvert.SerializeObject(reply);
+            var message = DateTime.Now + ": " + json + "\n" + ex + "\n\n";
+            File.AppendAllText(errorFilename, message);
+        }
     }
 }
