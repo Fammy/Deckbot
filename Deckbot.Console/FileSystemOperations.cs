@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using Deckbot.Console.Models;
+using Newtonsoft.Json;
 
 namespace Deckbot.Console;
 
@@ -13,7 +14,7 @@ public static class FileSystemOperations
     public static RedditConfig? GetConfig(string filename)
     {
         var json = File.ReadAllText(filename);
-        return JsonSerializer.Deserialize<RedditConfig>(json);
+        return JsonConvert.DeserializeObject<RedditConfig>(json);
     }
 
     public static List<(string, string, int)> GetReservationData()
@@ -58,7 +59,7 @@ public static class FileSystemOperations
 
     public static void WriteReplyQueue(Queue<BotReply> replyQueue)
     {
-        var json = JsonSerializer.Serialize(replyQueue);
+        var json = JsonConvert.SerializeObject(replyQueue);
         File.WriteAllText(ReplyQueueFilename, json);
     }
 
@@ -73,7 +74,7 @@ public static class FileSystemOperations
                 return new Queue<BotReply>();
             }
 
-            return JsonSerializer.Deserialize<Queue<BotReply>>(json) ?? new Queue<BotReply>();
+            return JsonConvert.DeserializeObject<Queue<BotReply>>(json) ?? new Queue<BotReply>();
         }
 
         return new Queue<BotReply>();

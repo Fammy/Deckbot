@@ -1,6 +1,11 @@
+﻿using System;
+using System.IO;
 using System.Text.RegularExpressions;
 using Deckbot.Console;
+using Deckbot.Console.Models;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json;
+using NuGet.Frameworks;
 
 namespace Deckbot.Test
 {
@@ -168,6 +173,24 @@ namespace Deckbot.Test
             var pattern = RegexConsts.ModelRegionTime.Replace("deckbot", @"debug\.deckbot").Replace("deck_bot", @"debug\.deck_bot");
 
             Assert.IsTrue(Regex.IsMatch(message, pattern, RegexOptions.IgnoreCase));
+        }
+
+        [TestMethod]
+        public void EmojiSerialize()
+        {
+            var writeObj = new BotReply
+            {
+                ReplyTime = DateTime.Now,
+                CommentId = "1234",
+                Reply = "String with 👀"
+            };
+            var writeJson = JsonConvert.SerializeObject(writeObj);
+            File.WriteAllText("temp.json", writeJson);
+
+            var readJson = File.ReadAllText("temp.json");
+            var readObj = JsonConvert.DeserializeObject<BotReply>(readJson);
+
+            Assert.AreEqual(writeObj.Reply, readObj.Reply);
         }
     }
 }
