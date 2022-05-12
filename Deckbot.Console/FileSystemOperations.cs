@@ -6,7 +6,8 @@ namespace Deckbot.Console;
 public static class FileSystemOperations
 {
     private const string ReservationDataFilename = "./config/data.tsv";
-    private const string ReplyQueueFilename = "./data/replyqueue.json";
+    private const string CommentReplyQueueFilename = "./data/commentreplyqueue.json";
+    private const string MessageReplyQueueFilename = "./data/messagereplyqueue.json";
     private const string ErrorFilename = "./logs/{0}.log";
 
     private static readonly object _lock = new();
@@ -58,17 +59,29 @@ public static class FileSystemOperations
         }
     }
 
-    public static void WriteReplyQueue(Queue<BotReply> replyQueue)
+    public static void WriteReplyQueue(Queue<BotReply> replyQueue, RequestSource source)
     {
-        var json = JsonConvert.SerializeObject(replyQueue);
-        File.WriteAllText(ReplyQueueFilename, json);
+        var fileName = source == RequestSource.PrivateMessage ? MessageReplyQueueFilename : CommentReplyQueueFilename;
+        WriteReplyQueue(replyQueue, fileName);
     }
 
-    public static Queue<BotReply> GetReplyQueue()
+    private static void WriteReplyQueue(Queue<BotReply> replyQueue, string fileName)
     {
-        if (File.Exists(ReplyQueueFilename))
+        var json = JsonConvert.SerializeObject(replyQueue);
+        File.WriteAllText(fileName, json);
+    }
+
+    public static Queue<BotReply> GetReplyQueue(RequestSource source)
+    {
+        var fileName = source == RequestSource.PrivateMessage ? MessageReplyQueueFilename : CommentReplyQueueFilename;
+        return GetReplyQueue(fileName);
+    }
+
+    private static Queue<BotReply> GetReplyQueue(string fileName)
+    {
+        if (File.Exists(fileName))
         {
-            var json = File.ReadAllText(ReplyQueueFilename);
+            var json = File.ReadAllText(fileName);
 
             if (string.IsNullOrWhiteSpace(json))
             {

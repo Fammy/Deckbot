@@ -1,4 +1,5 @@
-﻿using Deckbot.Console.Models;
+﻿using System.Reflection.Metadata;
+using Deckbot.Console.Models;
 using Reddit;
 using Reddit.Controllers;
 using Reddit.Controllers.EventArgs;
@@ -11,11 +12,13 @@ public static class Bot
 {
     private static readonly object _lock = new();
     private static int commentsSeenCount;
-    private static Queue<BotReply> replyQueue = new();
+    private static Queue<BotReply> commentReplyQueue = new();
+    private static Queue<BotReply> messageReplyQueue = new();
 
     private static RedditConfig? Config { get; set; }
     private static RedditClient? Client { get; set; }
-    private static DateTime RateLimitedTime { get; set; }
+    private static DateTime CommentRateLimitedTime { get; set; }
+    private static DateTime MessageRateLimitedTime { get; set; }
     private static string? BotName { get; set; }
     private static List<string> ValidPostsIds { get; set; } = new();
 
@@ -33,7 +36,8 @@ public static class Bot
 
         ReservationData = FileSystemOperations.GetReservationData();
         Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.4 (by /u/Fammy)");
-        RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
+        CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
+        MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
         if (Config.PostsToMonitor != null)
@@ -43,8 +47,10 @@ public static class Bot
 
         lock (_lock)
         {
-            replyQueue = FileSystemOperations.GetReplyQueue();
-            WriteLine($"Restored {replyQueue.Count} replies from disk...");
+            commentReplyQueue = FileSystemOperations.GetReplyQueue(RequestSource.Post);
+            WriteLine($"Restored {commentReplyQueue.Count} comment replies from disk...");
+            messageReplyQueue = FileSystemOperations.GetReplyQueue(RequestSource.PrivateMessage);
+            WriteLine($"Restored {messageReplyQueue.Count} message replies from disk...");
         }
 
         if (Config.MonitorSubreddit)
@@ -82,7 +88,7 @@ public static class Bot
             MonitorPrivateMessages(Client.Account);
         }
 
-        ProcessReplyQueue();
+        ProcessReplyQueues();
     }
 
     private static void MonitorSub(Subreddit sub)
@@ -138,7 +144,7 @@ public static class Bot
                 }
             }
 
-            ProcessReplyQueue();
+            ProcessReplyQueues();
         }
         catch (Exception ex)
         {
@@ -173,7 +179,7 @@ public static class Bot
                 }
             }
 
-            ProcessReplyQueue();
+            ProcessReplyQueues();
         }
         catch (Exception ex)
         {
@@ -203,91 +209,108 @@ public static class Bot
         return ValidPostsIds.Any(postId => permalink.Contains($"/{postId}/"));
     }
 
-    private static void ProcessReplyQueue()
+    private static void ProcessReplyQueues()
+    {
+        lock (_lock)
+        {
+            FileSystemOperations.WriteReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
+            FileSystemOperations.WriteReplyQueue(commentReplyQueue, RequestSource.Post);
+
+            ProcessReplyQueue(commentReplyQueue, RequestSource.Post);
+            ProcessReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
+        }
+    }
+
+    private static void ProcessReplyQueue(Queue<BotReply> replyQueue, RequestSource source)
     {
         if (Config == null || Client == null)
         {
             return;
         }
 
-        lock (_lock)
+        var queueHasItems = replyQueue.Any();
+
+        if (!queueHasItems)
         {
-            FileSystemOperations.WriteReplyQueue(replyQueue);
-
-            var queueHasItems = replyQueue.Any();
-
-            if (!queueHasItems)
-            {
-                return;
-            }
-
-            var queueSize = replyQueue.Count;
-
-            var lastRateLimited = DateTime.Now - RateLimitedTime;
-            if (lastRateLimited < TimeSpan.FromSeconds(Config.RateLimitCooldown))
-            {
-                WriteLine($"Skipping reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}");
-                return;
-            }
-
-            var processed = 0;
-
-            while (replyQueue.Count > 0)
-            {
-                var reply = replyQueue.Peek();
-
-                try
-                {
-                    var comment = Client.Comment(reply.CommentId);
-                    comment.Reply(reply.Reply);
-
-                    replyQueue.Dequeue();
-                    processed++;
-
-                    Thread.Sleep(Config.ReplyCooldownMs);
-                }
-                catch (RedditRateLimitException ex)
-                {
-                    RateLimitedTime = DateTime.Now;
-
-                    var behindMessage = string.Empty;
-                    if (reply.ReplyTime.HasValue)
-                    {
-                        var behindTime = DateTime.Now - reply.ReplyTime.Value;
-                        behindMessage = $". Deckbot is {behindTime.Hours:D2}:{behindTime.Minutes:D2}:{behindTime.Seconds:D2} behind";
-                    }
-
-                    System.Console.WriteLine(ex);
-                    Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} comments in the reply queue{behindMessage}");
-
-                    FileSystemOperations.WriteReplyQueue(replyQueue);
-
-                    return;
-                }
-                catch (RedditControllerException ex)
-                {
-                    FileSystemOperations.WriteException("controller_exception", reply, ex);
-
-                    replyQueue.Dequeue();
-
-                    System.Console.WriteLine(ex);
-                    Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{queueSize} comments in the reply queue");
-                }
-                catch (RedditForbiddenException ex)
-                {
-                    FileSystemOperations.WriteException("forbidden_exception", reply, ex);
-
-                    replyQueue.Dequeue();
-
-                    System.Console.WriteLine(ex);
-                    Log.Error(ex, $"Forbidden exception, discarding comment. Processed {processed}/{queueSize} comments in the reply queue");
-                }
-            }
-
-            WriteLine($"Made it through the queue, processed {processed}/{queueSize}");
-
-            FileSystemOperations.WriteReplyQueue(replyQueue);
+            return;
         }
+
+        var queueSize = replyQueue.Count;
+
+        var rateLimitedTime = source == RequestSource.PrivateMessage ? MessageRateLimitedTime : CommentRateLimitedTime;
+        var queueName = source == RequestSource.PrivateMessage ? "message" : "comment";
+
+        var lastRateLimited = DateTime.Now - rateLimitedTime;
+        if (lastRateLimited < TimeSpan.FromSeconds(Config.RateLimitCooldown))
+        {
+            WriteLine($"Skipping {queueName} reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}");
+            return;
+        }
+
+        var processed = 0;
+
+        while (replyQueue.Count > 0)
+        {
+            var reply = replyQueue.Peek();
+
+            try
+            {
+                var comment = Client.Comment(reply.CommentId);
+                comment.Reply(reply.Reply);
+
+                replyQueue.Dequeue();
+                processed++;
+
+                Thread.Sleep(Config.ReplyCooldownMs);
+            }
+            catch (RedditRateLimitException ex)
+            {
+                if (source == RequestSource.PrivateMessage)
+                {
+                    MessageRateLimitedTime = DateTime.Now;
+                }
+                else
+                {
+                    CommentRateLimitedTime = DateTime.Now;
+                }
+
+                var behindMessage = string.Empty;
+                if (reply.ReplyTime.HasValue)
+                {
+                    var behindTime = DateTime.Now - reply.ReplyTime.Value;
+                    behindMessage = $". Deckbot is {behindTime.Hours:D2}:{behindTime.Minutes:D2}:{behindTime.Seconds:D2} behind";
+                }
+
+                System.Console.WriteLine(ex);
+                Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} replies in the {queueName} reply queue{behindMessage}");
+
+                FileSystemOperations.WriteReplyQueue(replyQueue, source);
+
+                return;
+            }
+            catch (RedditControllerException ex)
+            {
+                FileSystemOperations.WriteException("controller_exception", reply, ex);
+
+                replyQueue.Dequeue();
+
+                System.Console.WriteLine(ex);
+                Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+            }
+            catch (RedditForbiddenException ex)
+            {
+                FileSystemOperations.WriteException("forbidden_exception", reply, ex);
+
+                replyQueue.Dequeue();
+
+                System.Console.WriteLine(ex);
+                Log.Error(ex, $"Forbidden exception, discarding comment. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+            }
+        }
+
+        WriteLine($"Made it through the {queueName} queue, processed {processed}/{queueSize}");
+
+        FileSystemOperations.WriteReplyQueue(replyQueue, source);
     }
 
     private static void ParseIncomingRequest(IncomingRequest request)
@@ -321,12 +344,24 @@ public static class Bot
 
             lock (_lock)
             {
-                replyQueue.Enqueue(new BotReply
+                if (request.Source == RequestSource.PrivateMessage)
                 {
-                    CommentId = request.MessageId,
-                    Reply = reply,
-                    ReplyTime = DateTime.Now
-                });
+                    messageReplyQueue.Enqueue(new BotReply
+                    {
+                        CommentId = request.MessageId,
+                        Reply = reply,
+                        ReplyTime = DateTime.Now
+                    });
+                }
+                else
+                {
+                    commentReplyQueue.Enqueue(new BotReply
+                    {
+                        CommentId = request.MessageId,
+                        Reply = reply,
+                        ReplyTime = DateTime.Now
+                    });
+                }
             }
         }
     }
