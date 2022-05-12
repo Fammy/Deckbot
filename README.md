@@ -20,11 +20,13 @@ Bot reads this at startup to get config values.
 ```
 {
 	"AppId": "", // Your AppId from your Reddit app
-	"AppSecret":, // Your secret from your Reddit app
-	"RefreshToken":, // Use your OAuth own server or https://not-an-aardvark.github.io/
-	"AccessToken": // Use your OAuth own server or https://not-an-aardvark.github.io/
-	"RateLimitCooldown": 120, // If the bot is rate limited, wait this may seconds to try agian
-	"ReplyCooldownMs": 1000, // Number of milliseconds (1000 = 1 second) to wait between posting replies
+	"AppSecret": "", // Your secret from your Reddit app
+	"RefreshToken": "", // Use your OAuth own server or https://not-an-aardvark.github.io/
+	"AccessToken": "",// Use your OAuth own server or https://not-an-aardvark.github.io/
+	"MessageRateLimitCooldown": 600, // If the bot is rate limited, wait this may seconds before trying to send a PM
+	"CommentRateLimitCooldown": 120, // If the bot is rate limited, wait this may seconds before trying to reply to a post comment
+	"MessageReplyCooldownMs": 10000, // Number of milliseconds (1000 = 1 second) to wait between posting replies to PMs
+	"CommentReplyCooldownMs": 2000, // Number of milliseconds (1000 = 1 second) to wait between posting replies to comments
 	"MonitorSubreddit": false, // If true, monitors all subreddits the user/bot is subscribed to for authorized posts in `PostsToMonitor` below. More work, but will find all comments and not top-level comments.
 	"MonitorBotUserPosts": false, // Monitor all user/self posts by the bot
 	"MonitorBotPrivateMessages": false, // Monitor bot's Private Messages

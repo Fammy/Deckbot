@@ -35,9 +35,9 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.4 (by /u/Fammy)");
-        CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
-        MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.5 (by /u/Fammy)");
+        CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
+        MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
         if (Config.PostsToMonitor != null)
@@ -241,7 +241,9 @@ public static class Bot
         var queueName = source == RequestSource.PrivateMessage ? "message" : "comment";
 
         var lastRateLimited = DateTime.Now - rateLimitedTime;
-        if (lastRateLimited < TimeSpan.FromSeconds(Config.RateLimitCooldown))
+        var rateLimitCooldown = source == RequestSource.PrivateMessage ? Config.MessageRateLimitCooldown : Config.CommentRateLimitCooldown;
+
+        if (lastRateLimited < TimeSpan.FromSeconds(rateLimitCooldown))
         {
             WriteLine($"Skipping {queueName} reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}");
             return;
@@ -261,7 +263,8 @@ public static class Bot
                 replyQueue.Dequeue();
                 processed++;
 
-                Thread.Sleep(Config.ReplyCooldownMs);
+                var replyCooldown = source == RequestSource.PrivateMessage ? Config.MessageReplyCooldownMs : Config.CommentReplyCooldownMs;
+                Thread.Sleep(replyCooldown);
             }
             catch (RedditRateLimitException ex)
             {
