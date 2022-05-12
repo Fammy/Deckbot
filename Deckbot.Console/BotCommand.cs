@@ -22,7 +22,8 @@ public class BotCommand
     {
         if (!request.IsAtValidLevel && request.Body.Contains("!deckbot", StringComparison.CurrentCultureIgnoreCase))
         {
-            return (true, @"Hi, I'm trying something new and while I do work in this post, I only work on replies to other comments to cut down on top level deckbot spam. You can also [PM](https://www.reddit.com/message/compose/?to=deck_bot&subject=deck&message=!deckbot%20) me if you want or comment (anywhere!) on [my post](https://www.reddit.com/r/SteamDeck/comments/ui642q/introducing_deckbot/).");
+            return (false, string.Empty);
+            //return (true, @"Hi, while I do work in this post, I only work on replies to other comments to cut down on top level deckbot spam. You can also [PM](https://www.reddit.com/message/compose/?to=deck_bot&subject=deck&message=!deckbot%20) me if you want or comment (anywhere!) on [my post](https://www.reddit.com/r/SteamDeck/comments/ui642q/introducing_deckbot/).");
         }
 
         foreach (var command in commands)
