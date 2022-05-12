@@ -12,4 +12,5 @@ public class IncomingRequest
     public string Author { get; set; }
     public string Body { get; set; }
     public string MessageId { get; set; }
+    public bool IsAtValidLevel { get; set; }
 }

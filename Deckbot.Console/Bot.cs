@@ -32,7 +32,7 @@ public static class Bot
         }
 
         ReservationData = FileSystemOperations.GetReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.3 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.4 (by /u/Fammy)");
         RateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.RateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
@@ -81,6 +81,8 @@ public static class Bot
         {
             MonitorPrivateMessages(Client.Account);
         }
+
+        ProcessReplyQueue();
     }
 
     private static void MonitorSub(Subreddit sub)
@@ -120,10 +122,13 @@ public static class Bot
             {
                 commentsSeenCount++;
 
-                var request = new IncomingRequest(message.Author, message.Body, message.Fullname);
+                var request = new IncomingRequest(message.Author, message.Body, message.Fullname)
+                {
+                    IsAtValidLevel = true
+                };
 
 #if DEBUG
-                WriteLine($"/u/{request.Author}: {message.Body.Substring(0, Math.Min(25, request.Body.Length))}");
+                WriteLine($"PM from /u/{request.Author}: {message.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
                 ParseIncomingRequest(request);
 
@@ -155,8 +160,10 @@ public static class Bot
                 if (CommentIsInAuthorizedPost(comment.Permalink))
                 {
 #if DEBUG
-                    WriteLine($"/u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
+                    WriteLine($"Post from /u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
+                    request.IsAtValidLevel = CommentIsAtAllowedLevel(comment.ParentId);
+
                     ParseIncomingRequest(request);
                 }
 
@@ -173,6 +180,17 @@ public static class Bot
             System.Console.WriteLine($"\nException: {ex}");
             Log.Error(ex, "Error processing comments");
         }
+    }
+
+    private static bool CommentIsAtAllowedLevel(string parentId)
+    {
+        // Introducing Deckbot
+        if (parentId.Equals("ui642q", StringComparison.CurrentCultureIgnoreCase))
+        {
+            return true;
+        }
+
+        return !ValidPostsIds.Any(postId => postId.Equals(parentId, StringComparison.CurrentCultureIgnoreCase));
     }
 
     private static bool CommentIsInAuthorizedPost(string permalink)
