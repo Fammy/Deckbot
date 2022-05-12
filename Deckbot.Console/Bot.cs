@@ -122,7 +122,7 @@ public static class Bot
             {
                 commentsSeenCount++;
 
-                var request = new IncomingRequest(message.Author, message.Body, message.Fullname)
+                var request = new IncomingRequest(message.Author, message.Body, message.Fullname, RequestSource.PrivateMessage)
                 {
                     IsAtValidLevel = true
                 };
@@ -155,7 +155,7 @@ public static class Bot
             {
                 commentsSeenCount++;
 
-                var request = new IncomingRequest(comment.Author, comment.Body, comment.Fullname);
+                var request = new IncomingRequest(comment.Author, comment.Body, comment.Fullname, RequestSource.Post);
 
                 if (CommentIsInAuthorizedPost(comment.Permalink))
                 {
@@ -311,7 +311,8 @@ public static class Bot
         }
 
 #if !DEBUG
-        WriteLine($"/u/{request.Author}: {request.Body.Substring(0, Math.Min(request.Body.Length, 100))}");
+        var source = request.Source == RequestSource.PrivateMessage ? "PM" : "Post";
+        WriteLine($"{source} from /u/{request.Author}: {request.Body.Substring(0, Math.Min(request.Body.Length, 100))}");
 #endif
 
         if (!string.IsNullOrWhiteSpace(reply))
