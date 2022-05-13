@@ -1,11 +1,11 @@
-﻿using System.Net;
-using Deckbot.Console.Models;
+﻿using Deckbot.Console.Models;
 using Newtonsoft.Json;
 
 namespace Deckbot.Console;
 
 public static class FileSystemOperations
 {
+    private const string ConfigFilename = "./config/config.json";
     private const string ReservationDataFilename = "./config/data.tsv";
     private const string CommentReplyQueueFilename = "./data/commentreplyqueue.json";
     private const string MessageReplyQueueFilename = "./data/messagereplyqueue.json";
@@ -13,16 +13,19 @@ public static class FileSystemOperations
     private const string ReservationDataDownloadUrl = "https://docs.google.com/spreadsheets/d/1ngfg2eP8E_Ue81lqGl6v34uVJ73qrfnq9S-H1aCZGD0/export?format=csv&gid=277245429";
 
     private static readonly object _lock = new();
+    private static DateTime lastConfigUpdate = DateTime.MinValue;
     private static DateTime lastReservationDataUpdate = DateTime.MinValue;
     private static DateTime lastReservationDataDownload = DateTime.MinValue;
 
-    public static RedditConfig? GetConfig(string filename)
+    public static RedditConfig? GetConfig()
     {
-        var json = File.ReadAllText(filename);
+        lastConfigUpdate = DateTime.Now;
+
+        var json = File.ReadAllText(ConfigFilename);
         return JsonConvert.DeserializeObject<RedditConfig>(json);
     }
 
-    public static List<(string, string, int)> GetReservationData()
+    public static List<(string Model, string Region, int ReserveTime)> GetReservationData()
     {
         lock (_lock)
         {
@@ -48,11 +51,28 @@ public static class FileSystemOperations
     {
         get
         {
-            if (DateTime.Now - lastReservationDataUpdate <= TimeSpan.FromMinutes(5)) return false;
+            if (DateTime.Now - lastReservationDataUpdate <= TimeSpan.FromSeconds(30)) return false;
 
             var fileInfo = new FileInfo(ReservationDataFilename);
 
             if (fileInfo.LastWriteTime >= lastReservationDataUpdate)
+            {
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    public static bool ConfigNeedsUpdate
+    {
+        get
+        {
+            if (DateTime.Now - lastConfigUpdate <= TimeSpan.FromSeconds(30)) return false;
+
+            var fileInfo = new FileInfo(ConfigFilename);
+
+            if (fileInfo.LastWriteTime >= lastConfigUpdate)
             {
                 return true;
             }
@@ -108,9 +128,12 @@ public static class FileSystemOperations
         }
     }
 
-    public static async Task DownloadNewReservationData()
+    public static async Task DownloadNewReservationData(int frequency)
     {
-        if (DateTime.Now - lastReservationDataDownload < TimeSpan.FromMinutes(15)) return;
+        if (DateTime.Now - lastReservationDataDownload < TimeSpan.FromMinutes(frequency))
+        {
+            return;
+        }
 
         lastReservationDataDownload = DateTime.Now;
 

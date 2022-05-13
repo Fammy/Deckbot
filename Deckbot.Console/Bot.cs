@@ -19,13 +19,14 @@ public static class Bot
     private static DateTime CommentRateLimitedTime { get; set; }
     private static DateTime MessageRateLimitedTime { get; set; }
     private static string? BotName { get; set; }
-    private static List<string> ValidPostsIds { get; set; } = new();
+    private static List<string> ValidPostIds { get; set; } = new();
+    private static List<string> BotPostIds { get; set; } = new();
 
     public static List<(string Model, string Region, int ReserveTime)>? ReservationData { get; private set; }
 
     public static void Go()
     {
-        Config = FileSystemOperations.GetConfig("./config/config.json");
+        Config = FileSystemOperations.GetConfig();
 
         if (Config == null)
         {
@@ -39,10 +40,7 @@ public static class Bot
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
 
-        if (Config.PostsToMonitor != null)
-        {
-            ValidPostsIds.AddRange(Config.PostsToMonitor);
-        }
+        UpdatePostsToMonitor();
 
         lock (_lock)
         {
@@ -77,7 +75,8 @@ public static class Bot
             var myPosts = Client.Account.Me.PostHistory;
             foreach (var post in myPosts)
             {
-                ValidPostsIds.Add(post.Id);
+                BotPostIds.Add(post.Id);
+                ValidPostIds.Add(post.Id);
                 MonitorPost(post);
             }
         }
@@ -90,13 +89,26 @@ public static class Bot
         ProcessReplyQueues();
     }
 
+    private static void UpdatePostsToMonitor()
+    {
+        if (Config?.PostsToMonitor != null)
+        {
+            lock (_lock)
+            {
+                ValidPostIds.Clear();
+                ValidPostIds.AddRange(Config.PostsToMonitor);
+                ValidPostIds.AddRange(BotPostIds);
+            }
+        }
+    }
+
     private static void MonitorSub(Subreddit sub)
     {
         if (sub.Name.Equals("Announcements", StringComparison.CurrentCultureIgnoreCase)) return;
 
         WriteLine($"Flushing new comments in /r/{sub.Name}...");
         sub.Comments.GetNew();
-        sub.Comments.NewUpdated += async (sender, args) =>  await OnNewComment(sender, args);
+        sub.Comments.NewUpdated += async (sender, args) => await OnNewComment(sender, args);
         WriteLine($"Monitoring new comments in /r/{sub.Name}...");
         sub.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
@@ -195,17 +207,17 @@ public static class Bot
             return true;
         }
 
-        return !ValidPostsIds.Any(postId => postId.Equals(parentId, StringComparison.CurrentCultureIgnoreCase));
+        return !ValidPostIds.Any(postId => postId.Equals(parentId, StringComparison.CurrentCultureIgnoreCase));
     }
 
     private static bool CommentIsInAuthorizedPost(string permalink)
     {
-        if (ValidPostsIds.Count == 0)
+        if (ValidPostIds.Count == 0)
         {
             return false;
         }
 
-        return ValidPostsIds.Any(postId => permalink.Contains($"/{postId}/"));
+        return ValidPostIds.Any(postId => permalink.Contains($"/{postId}/"));
     }
 
     private static void ProcessReplyQueues()
@@ -341,11 +353,50 @@ public static class Bot
 
     private static async Task DoPeriodicWork()
     {
-        await FileSystemOperations.DownloadNewReservationData();
+        if (FileSystemOperations.ConfigNeedsUpdate)
+        {
+            var newConfig = FileSystemOperations.GetConfig();
+
+            if (newConfig != null)
+            {
+                Config = newConfig;
+                UpdatePostsToMonitor();
+            }
+
+            WriteLine("Reloaded config.json");
+        }
+
+        if (Config?.DownloadReservationDataFrequency > 0)
+        {
+            await FileSystemOperations.DownloadNewReservationData(Config.DownloadReservationDataFrequency);
+        }
 
         if (FileSystemOperations.ReservationDataNeedsUpdate)
         {
-            ReservationData = FileSystemOperations.GetReservationData();
+            var newData = FileSystemOperations.GetReservationData();
+
+            if (ReservationData != null)
+            {
+                var updated = false;
+
+                for (var i = 0; i < newData.Count; ++i)
+                {
+                    if (!newData[i].Region.Equals(ReservationData[i].Region, StringComparison.CurrentCultureIgnoreCase) ||
+                        !newData[i].Model.Equals(ReservationData[i].Model, StringComparison.CurrentCultureIgnoreCase) ||
+                        newData[i].ReserveTime != ReservationData[i].ReserveTime)
+                    {
+                        updated = true;
+                        break;
+                    }
+                }
+
+                if (updated)
+                {
+                    WriteLine("Updated reservation data");
+                }
+            }
+
+            ReservationData = newData;
         }
     }
 
