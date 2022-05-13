@@ -275,7 +275,12 @@ public static class Bot
                 processed++;
 
                 var replyCooldown = source == RequestSource.PrivateMessage ? Config.MessageReplyCooldownMs : Config.CommentReplyCooldownMs;
-                Thread.Sleep(replyCooldown);
+
+                // Throttle replies if queue has more than 1 item and we aren't on the last item
+                if (queueSize > 1 && replyQueue.Count > 0)
+                {
+                    Thread.Sleep(replyCooldown);
+                }
             }
             catch (RedditRateLimitException ex)
             {
