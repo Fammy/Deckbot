@@ -1,5 +1,4 @@
-﻿using System.Reflection.Metadata;
-using Deckbot.Console.Models;
+﻿using Deckbot.Console.Models;
 using Reddit;
 using Reddit.Controllers;
 using Reddit.Controllers.EventArgs;
@@ -97,7 +96,7 @@ public static class Bot
 
         WriteLine($"Flushing new comments in /r/{sub.Name}...");
         sub.Comments.GetNew();
-        sub.Comments.NewUpdated += OnNewComment;
+        sub.Comments.NewUpdated += async (sender, args) =>  await OnNewComment(sender, args);
         WriteLine($"Monitoring new comments in /r/{sub.Name}...");
         sub.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
@@ -106,7 +105,7 @@ public static class Bot
     {
         WriteLine($"Flushing new comments in post {post.Title ?? post.Fullname}...");
         post.Comments.GetNew();
-        post.Comments.NewUpdated += OnNewComment;
+        post.Comments.NewUpdated += async (sender, args) => await OnNewComment(sender, args);
         WriteLine($"Monitoring new comments in post {post.Title ?? post.Fullname}...");
         post.Comments.MonitorNew(monitoringBaseDelayMs: 15000);
     }
@@ -115,12 +114,12 @@ public static class Bot
     {
         WriteLine($"Flushing new private messages...");
         account.Messages.GetMessagesUnread();
-        account.Messages.UnreadUpdated += MessagesUpdated;
+        account.Messages.UnreadUpdated += async (sender, args) => await MessagesUpdated(sender, args);
         WriteLine($"Monitoring new private messages...");
         account.Messages.MonitorUnread(monitoringBaseDelayMs: 15000);
     }
 
-    private static void MessagesUpdated(object? sender, MessagesUpdateEventArgs e)
+    private static async Task MessagesUpdated(object? sender, MessagesUpdateEventArgs e)
     {
         try
         {
@@ -136,7 +135,7 @@ public static class Bot
 #if DEBUG
                 WriteLine($"PM from /u/{request.Author}: {message.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
-                ParseIncomingRequest(request);
+                await ParseIncomingRequest(request);
 
                 if (commentsSeenCount % 100 == 0)
                 {
@@ -153,7 +152,7 @@ public static class Bot
         }
     }
 
-    private static void OnNewComment(object? sender, CommentsUpdateEventArgs e)
+    private static async Task OnNewComment(object? sender, CommentsUpdateEventArgs e)
     {
         try
         {
@@ -170,7 +169,7 @@ public static class Bot
 #endif
                     request.IsAtValidLevel = CommentIsAtAllowedLevel(comment.ParentId);
 
-                    ParseIncomingRequest(request);
+                    await ParseIncomingRequest(request);
                 }
 
                 if (commentsSeenCount % 100 == 0)
@@ -316,16 +315,13 @@ public static class Bot
         FileSystemOperations.WriteReplyQueue(replyQueue, source);
     }
 
-    private static void ParseIncomingRequest(IncomingRequest request)
+    private static async Task ParseIncomingRequest(IncomingRequest request)
     {
+        await DoPeriodicWork();
+
         if (string.IsNullOrWhiteSpace(request.Body) || string.IsNullOrWhiteSpace(request.Author)) return;
 
         if (request.Author.Equals(BotName, StringComparison.CurrentCultureIgnoreCase)) return;
-
-        if (FileSystemOperations.ReservationDataNeedsUpdate)
-        {
-            ReservationData = FileSystemOperations.GetReservationData();
-        }
 
         var command = new BotCommand();
 
@@ -340,31 +336,44 @@ public static class Bot
         var source = request.Source == RequestSource.PrivateMessage ? "PM" : "Post";
         WriteLine($"{source} from /u/{request.Author}: {request.Body.Substring(0, Math.Min(request.Body.Length, 100))}");
 #endif
+        ProcessReply(request, reply);
+    }
 
-        if (!string.IsNullOrWhiteSpace(reply))
+    private static async Task DoPeriodicWork()
+    {
+        await FileSystemOperations.DownloadNewReservationData();
+
+        if (FileSystemOperations.ReservationDataNeedsUpdate)
         {
-            // TODO: don't process if already replied, which may consume too many API calls
+            ReservationData = FileSystemOperations.GetReservationData();
+        }
+    }
 
-            lock (_lock)
+    private static void ProcessReply(IncomingRequest request, string reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply)) return;
+
+        // TODO: don't process if already replied, which may consume too many API calls
+
+        lock (_lock)
+        {
+            if (request.Source == RequestSource.PrivateMessage)
             {
-                if (request.Source == RequestSource.PrivateMessage)
+                messageReplyQueue.Enqueue(new BotReply
                 {
-                    messageReplyQueue.Enqueue(new BotReply
-                    {
-                        CommentId = request.MessageId,
-                        Reply = reply,
-                        ReplyTime = DateTime.Now
-                    });
-                }
-                else
+                    CommentId = request.MessageId,
+                    Reply = reply,
+                    ReplyTime = DateTime.Now
+                });
+            }
+            else
+            {
+                commentReplyQueue.Enqueue(new BotReply
                 {
-                    commentReplyQueue.Enqueue(new BotReply
-                    {
-                        CommentId = request.MessageId,
-                        Reply = reply,
-                        ReplyTime = DateTime.Now
-                    });
-                }
+                    CommentId = request.MessageId,
+                    Reply = reply,
+                    ReplyTime = DateTime.Now
+                });
             }
         }
     }

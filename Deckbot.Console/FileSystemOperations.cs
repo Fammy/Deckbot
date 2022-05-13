@@ -1,4 +1,5 @@
-﻿using Deckbot.Console.Models;
+﻿using System.Net;
+using Deckbot.Console.Models;
 using Newtonsoft.Json;
 
 namespace Deckbot.Console;
@@ -9,9 +10,11 @@ public static class FileSystemOperations
     private const string CommentReplyQueueFilename = "./data/commentreplyqueue.json";
     private const string MessageReplyQueueFilename = "./data/messagereplyqueue.json";
     private const string ErrorFilename = "./logs/{0}.log";
+    private const string ReservationDataDownloadUrl = "https://docs.google.com/spreadsheets/d/1ngfg2eP8E_Ue81lqGl6v34uVJ73qrfnq9S-H1aCZGD0/export?format=csv&gid=277245429";
 
     private static readonly object _lock = new();
-    private static DateTime lastUpdated = DateTime.MinValue;
+    private static DateTime lastReservationDataUpdate = DateTime.MinValue;
+    private static DateTime lastReservationDataDownload = DateTime.MinValue;
 
     public static RedditConfig? GetConfig(string filename)
     {
@@ -36,7 +39,7 @@ public static class FileSystemOperations
                 }
             }
 
-            lastUpdated = DateTime.Now;
+            lastReservationDataUpdate = DateTime.Now;
             return data;
         }
     }
@@ -45,14 +48,13 @@ public static class FileSystemOperations
     {
         get
         {
-            if (DateTime.Now - lastUpdated > TimeSpan.FromMinutes(5))
-            {
-                var fileInfo = new FileInfo(ReservationDataFilename);
+            if (DateTime.Now - lastReservationDataUpdate <= TimeSpan.FromMinutes(5)) return false;
 
-                if (fileInfo.LastWriteTime >= lastUpdated)
-                {
-                    return true;
-                }
+            var fileInfo = new FileInfo(ReservationDataFilename);
+
+            if (fileInfo.LastWriteTime >= lastReservationDataUpdate)
+            {
+                return true;
             }
 
             return false;
@@ -103,6 +105,29 @@ public static class FileSystemOperations
             var json = JsonConvert.SerializeObject(reply);
             var message = DateTime.Now + ": " + json + "\n" + ex + "\n\n";
             File.AppendAllText(errorFilename, message);
+        }
+    }
+
+    public static async Task DownloadNewReservationData()
+    {
+        if (DateTime.Now - lastReservationDataDownload < TimeSpan.FromMinutes(15)) return;
+
+        lastReservationDataDownload = DateTime.Now;
+
+        try
+        {
+            var client = new HttpClient();
+            var data = await client.GetStringAsync(ReservationDataDownloadUrl);
+            var tsv = data.Replace(",", "\t");
+
+            lock (_lock)
+            {
+                File.WriteAllText(ReservationDataFilename, tsv);
+            }
+        }
+        catch
+        {
+            // Failed, we'll try again later
         }
     }
 }
