@@ -177,7 +177,7 @@ public static class Bot
                 if (CommentIsInAuthorizedPost(comment.Permalink))
                 {
 #if DEBUG
-                    WriteLine($"Post from /u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
+                    WriteLine($"Comment from /u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
                     request.IsAtValidLevel = CommentIsAtAllowedLevel(comment.ParentId);
 
@@ -314,7 +314,7 @@ public static class Bot
                 replyQueue.Dequeue();
 
                 System.Console.WriteLine(ex);
-                Log.Error(ex, $"Controller exception, discarding comment. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+                Log.Error(ex, $"Controller exception, discarding reply. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
             }
             catch (RedditForbiddenException ex)
             {
@@ -323,7 +323,7 @@ public static class Bot
                 replyQueue.Dequeue();
 
                 System.Console.WriteLine(ex);
-                Log.Error(ex, $"Forbidden exception, discarding comment. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+                Log.Error(ex, $"Forbidden exception, discarding reply. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
             }
         }
 
@@ -350,7 +350,7 @@ public static class Bot
         }
 
 #if !DEBUG
-        var source = request.Source == RequestSource.PrivateMessage ? "PM" : "Post";
+        var source = request.Source == RequestSource.PrivateMessage ? "PM" : "Comment";
         WriteLine($"{source} from /u/{request.Author}: {request.Body.Substring(0, Math.Min(request.Body.Length, 100))}");
 #endif
         ProcessReply(request, reply);
