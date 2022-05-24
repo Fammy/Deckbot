@@ -1,4 +1,6 @@
-﻿using Deckbot.Console.Models;
+﻿using System.Collections;
+using System.Text;
+using Deckbot.Console.Models;
 using Reddit;
 using Reddit.Controllers;
 using Reddit.Controllers.EventArgs;
@@ -161,6 +163,7 @@ public static class Bot
         {
             System.Console.WriteLine($"\nException: {ex}");
             Log.Error(ex, "Error processing private messages");
+            LogExceptionData(ex);
         }
     }
 
@@ -196,6 +199,7 @@ public static class Bot
         {
             System.Console.WriteLine($"\nException: {ex}");
             Log.Error(ex, "Error processing comments");
+            LogExceptionData(ex);
         }
     }
 
@@ -260,6 +264,11 @@ public static class Bot
             return;
         }
 
+        if (replyQueue.Count > 10)
+        {
+            WriteLine($"Starting processing of {replyQueue.Count} replies in the {queueName} reply queue.");
+        }
+
         var processed = 0;
 
         while (replyQueue.Count > 0)
@@ -302,6 +311,7 @@ public static class Bot
 
                 System.Console.WriteLine(ex);
                 Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} replies in the {queueName} reply queue{behindMessage}");
+                LogExceptionData(ex);
 
                 FileSystemOperations.WriteReplyQueue(replyQueue, source);
 
@@ -315,6 +325,7 @@ public static class Bot
 
                 System.Console.WriteLine(ex);
                 Log.Error(ex, $"Controller exception, discarding reply. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+                LogExceptionData(ex);
             }
             catch (RedditForbiddenException ex)
             {
@@ -324,12 +335,32 @@ public static class Bot
 
                 System.Console.WriteLine(ex);
                 Log.Error(ex, $"Forbidden exception, discarding reply. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+                LogExceptionData(ex);
             }
         }
 
         WriteLine($"Made it through the {queueName} queue, processed {processed}/{queueSize}");
 
         FileSystemOperations.WriteReplyQueue(replyQueue, source);
+    }
+
+    private static void LogExceptionData(Exception ex)
+    {
+        try
+        {
+            var sb = new StringBuilder();
+
+            foreach (DictionaryEntry entry in ex.Data)
+            {
+                sb.AppendLine($"{entry.Key} = {entry.Value}");
+            }
+
+            if (sb.Length > 0)
+            {
+                Log.Error($"  Data: {sb}");
+            }
+        }
+        catch { }
     }
 
     private static async Task ParseIncomingRequest(IncomingRequest request)
