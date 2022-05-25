@@ -36,7 +36,7 @@ public static class Bot
             return;
         }
 
-        ReservationData = FileSystemOperations.GetReservationData();
+        ReloadReservationData();
         Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.5 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
@@ -428,7 +428,7 @@ public static class Bot
 
                 if (updated)
                 {
-                    WriteLine("Updated reservation data");
+                    WriteLine("Found new reservation data");
                 }
             }
 
@@ -469,5 +469,11 @@ public static class Bot
     {
         System.Console.WriteLine($"\n{text}");
         Log.Information(text);
+    }
+
+    public static void ReloadReservationData()
+    {
+        WriteLine("Reloading reservation data...");
+        ReservationData = FileSystemOperations.GetReservationData();
     }
 }

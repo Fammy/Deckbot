@@ -111,7 +111,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
         var closing = percent >= 90 ?
             "! " + PickRandomly("Soon™️", "👀", "So close!", "Get hype") :
             percent.ToString().StartsWith("50.") ? ". Perfectly balanced" :
-            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp"):
+            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp") :
         ".";
 
         return $@"{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
@@ -137,9 +137,36 @@ If you don't have your `rtReserveTime`, here's how to get it:
             throw new ArgumentException($"{nameof(Bot.ReservationData)} is null");
         }
 
-        var match = Bot.ReservationData.Single(d => d.Model.Equals(model, StringComparison.CurrentCultureIgnoreCase) &&
-                                                                  d.Region.Equals(region, StringComparison.CurrentCultureIgnoreCase));
+        var match = GetMatch(region, model);
+
+        if (!match.Success)
+        {
+            Bot.ReloadReservationData();
+            match = GetMatch(region, model);
+        }
+
         return match.ReserveTime;
+    }
+
+    private static (string Model, string Region, int ReserveTime, bool Success) GetMatch(string region, string model)
+    {
+        if (Bot.ReservationData is not { Count: 9 })
+        {
+            return ("", "", 0, false);
+        }
+
+        var hasMatch = Bot.ReservationData.Any(d => d.Model.Equals(model, StringComparison.CurrentCultureIgnoreCase) &&
+                                                                d.Region.Equals(region, StringComparison.CurrentCultureIgnoreCase));
+
+        if (!hasMatch)
+        {
+            return ("", "", 0, false);
+        }
+
+        var (m, r, rt) = Bot.ReservationData.First(d => d.Model.Equals(model, StringComparison.CurrentCultureIgnoreCase) &&
+            d.Region.Equals(region, StringComparison.CurrentCultureIgnoreCase));
+
+        return (m, r, rt, true);
     }
 
     private static string FormatTime(TimeSpan span)
