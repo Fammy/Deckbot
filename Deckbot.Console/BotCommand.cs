@@ -107,11 +107,11 @@ If you don't have your `rtReserveTime`, here's how to get it:
         var timeLeftStr = FormatTime(timeLeft);
         var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
 
-        var greeting = PickRandomly("Hi!", "Howdy!", "Hello!", "Greetings!", "Hola!", "Ciao!");
+        var greeting = PickRandomly("Hi!", "Howdy!", "Hello!", "Greetings!", "Hola!", "Ciao!", "Beep beep boop!");
         var closing = percent >= 90 ?
             "! " + PickRandomly("Soon™️", "👀", "So close!", "Get hype") :
             percent.ToString().StartsWith("50.") ? ". Perfectly balanced" :
-            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp") :
+            percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp", "*Sad bot noises*") :
         ".";
 
         return $@"{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";

@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Text;
+using System.Text.RegularExpressions;
 using Deckbot.Console.Models;
 using Reddit;
 using Reddit.Controllers;
@@ -23,6 +24,8 @@ public static class Bot
     private static string? BotName { get; set; }
     private static List<string> ValidPostIds { get; set; } = new();
     private static List<string> BotPostIds { get; set; } = new();
+    private static int OverrideCommentRateLimitCooldown { get; set; }
+    private static int OverrideMessageRateLimitCooldown { get; set; }
 
     public static List<(string Model, string Region, int ReserveTime)>? ReservationData { get; private set; }
 
@@ -256,15 +259,27 @@ public static class Bot
         var queueName = source == RequestSource.PrivateMessage ? "message" : "comment";
 
         var lastRateLimited = DateTime.Now - rateLimitedTime;
-        var rateLimitCooldown = source == RequestSource.PrivateMessage ? Config.MessageRateLimitCooldown : Config.CommentRateLimitCooldown;
+        int rateLimitCooldown;
+        
+        if (source == RequestSource.PrivateMessage)
+        {
+            rateLimitCooldown = OverrideMessageRateLimitCooldown > 0 ? OverrideMessageRateLimitCooldown : Config.MessageRateLimitCooldown;
+        }
+        else
+        {
+            rateLimitCooldown = OverrideCommentRateLimitCooldown > 0 ? OverrideCommentRateLimitCooldown : Config.CommentRateLimitCooldown;
+        }
 
         if (lastRateLimited < TimeSpan.FromSeconds(rateLimitCooldown))
         {
-            WriteLine($"Skipping {queueName} reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}");
+            WriteLine($"Skipping {queueName} reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}, cooldown is {rateLimitCooldown}");
             return;
         }
 
-        if (replyQueue.Count > 10)
+        OverrideMessageRateLimitCooldown = 0;
+        OverrideCommentRateLimitCooldown = 0;
+
+        if (replyQueue.Count >= 10)
         {
             WriteLine($"Starting processing of {replyQueue.Count} replies in the {queueName} reply queue.");
         }
@@ -308,9 +323,59 @@ public static class Bot
                     var behindTime = DateTime.Now - reply.ReplyTime.Value;
                     behindMessage = $". Deckbot is {behindTime.Hours:D2}:{behindTime.Minutes:D2}:{behindTime.Seconds:D2} behind";
                 }
+                var errors = new List<string>();
+
+                foreach (DictionaryEntry entry in ex.Data)
+                {
+                    if (entry.Value is List<List<string>> nestedList)
+                    {
+                        errors.AddRange(nestedList.SelectMany(l => l));
+                    }
+                    else if (entry.Value != null)
+                    {
+                        errors.Add(entry.Value?.ToString() ?? string.Empty);
+                    }
+                }
+
+                var breakMessages = errors.Where(e => e.Contains("Take a break")).ToList();
+
+                OverrideCommentRateLimitCooldown = 0;
+                OverrideMessageRateLimitCooldown = 0;
+
+                if (breakMessages.Any())
+                {
+                    var match = new Regex(@"[0-9]+").Match(breakMessages[0]);
+
+                    if (int.TryParse(match.Value, out var wait))
+                    {
+                        if (breakMessages[0].Contains("second"))
+                        {
+                            wait += 2;
+                        }
+                        else if (breakMessages[0].Contains("minute"))
+                        {
+                            wait = (wait * 60) + 30;
+                        }
+                        else if (breakMessages[0].Contains("hour"))
+                        {
+                            wait = (wait * 3600);
+                        }
+
+                        if (source == RequestSource.PrivateMessage)
+                        {
+                            OverrideMessageRateLimitCooldown = wait;
+                        }
+                        else
+                        {
+                            OverrideCommentRateLimitCooldown = wait;
+                        }
+
+                        WriteLine($"Rate limited with message {breakMessages[0]}, adjusting cooldown to {wait} seconds");
+                    }
+                }
 
                 System.Console.WriteLine(ex);
-                Log.Error(ex, $"Rate Limited, processed {processed}/{queueSize} replies in the {queueName} reply queue{behindMessage}");
+                Log.Error(ex, $"Rate limited, processed {processed}/{queueSize} replies in the {queueName} reply queue{behindMessage}");
                 LogExceptionData(ex);
 
                 FileSystemOperations.WriteReplyQueue(replyQueue, source);
@@ -352,7 +417,17 @@ public static class Bot
 
             foreach (DictionaryEntry entry in ex.Data)
             {
-                sb.AppendLine($"{entry.Key} = {entry.Value}");
+                if (entry.Value is List<List<string>> nestedList)
+                {
+                    foreach (var s in nestedList.SelectMany(l => l))
+                    {
+                        sb.AppendLine($"{entry.Key} = {s}");
+                    }
+                }
+                else
+                {
+                    sb.AppendLine($"{entry.Key} = {entry.Value}");
+                }
             }
 
             if (sb.Length > 0)
