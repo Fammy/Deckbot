@@ -399,7 +399,7 @@ public static class Bot
                 replyQueue.Dequeue();
 
                 System.Console.WriteLine(ex);
-                Log.Error(ex, $"Forbidden exception, discarding reply. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
+                Log.Error(ex, $"Forbidden exception, discarding reply to {reply.OriginalAuthor}. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
                 LogExceptionData(ex);
             }
         }
@@ -525,7 +525,8 @@ public static class Bot
                 {
                     CommentId = request.MessageId,
                     Reply = reply,
-                    ReplyTime = DateTime.Now
+                    ReplyTime = DateTime.Now,
+                    OriginalAuthor = request.Author
                 });
             }
             else
@@ -534,7 +535,8 @@ public static class Bot
                 {
                     CommentId = request.MessageId,
                     Reply = reply,
-                    ReplyTime = DateTime.Now
+                    ReplyTime = DateTime.Now,
+                    OriginalAuthor = request.Author
                 });
             }
         }
