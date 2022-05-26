@@ -29,7 +29,7 @@ public class BotCommand
         foreach (var command in commands)
         {
 #if DEBUG
-            var pattern = command.Pattern.Replace("deckbot", @"debugdeckbot").Replace("deck_bot", @"debugdeck_bot");
+            var pattern = command.Pattern.Replace("deck", @"debugdeck");
 #else
             var pattern = command.Pattern;
 #endif

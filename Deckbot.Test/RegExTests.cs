@@ -33,6 +33,23 @@ namespace Deckbot.Test
         [DataRow("UK", "256GB", "1626412345")]
         [DataRow("UK", "256gb", "1626412345")]
         [DataRow("UK", "256GB", "rt1626412345")]
+        public void RegionModelTimeStrictSpaces(string region, string model, string reserveTime)
+        {
+            Assert.IsTrue(Regex.IsMatch($"! deckbot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+            Assert.IsTrue(Regex.IsMatch($"!deck bot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+            Assert.IsTrue(Regex.IsMatch($"! deck bot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+        }
+
+        [TestMethod]
+        [DataRow("US", "512", "1626412345")]
+        [DataRow("EU", "64", "1626412345")]
+        [DataRow("UK", "256", "1626412345")]
+        [DataRow("us", "512", "1626412345")]
+        [DataRow("eu", "64", "1626412345")]
+        [DataRow("uk", "256", "1626412345")]
+        [DataRow("UK", "256GB", "1626412345")]
+        [DataRow("UK", "256gb", "1626412345")]
+        [DataRow("UK", "256GB", "rt1626412345")]
         public void ModelRegionTimeStrict(string region, string model, string reserveTime)
         {
             Assert.IsTrue(Regex.IsMatch($"!deckbot {model} {region} {reserveTime}", RegexConsts.ModelRegionTime, RegexOptions.IgnoreCase));
@@ -162,11 +179,11 @@ namespace Deckbot.Test
         }
 
         [TestMethod]
-        [DataRow("!debug.deckbot 64 US 1626412345")]
-        [DataRow("!debug.deck_bot 64 US 1626412345")]
+        [DataRow("!debugdeckbot 64 US 1626412345")]
+        [DataRow("!debugdeck_bot 64 US 1626412345")]
         public void Debug(string message)
         {
-            var pattern = RegexConsts.ModelRegionTime.Replace("deckbot", @"debug\.deckbot").Replace("deck_bot", @"debug\.deck_bot");
+            var pattern = RegexConsts.ModelRegionTime.Replace("deck", @"debugdeck");
 
             Assert.IsTrue(Regex.IsMatch(message, pattern, RegexOptions.IgnoreCase));
         }
