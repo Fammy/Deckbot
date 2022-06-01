@@ -101,7 +101,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
 
         if (timeLeft.TotalSeconds == 0)
         {
-            return $@"Whoa!! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **0** worth of pre-orders before yours remaining. You may or may not have received your order email. If you haven't, you should next batch!";
+            return $@"Whoa!! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **0 seconds** worth of pre-orders before yours remaining.  You may or may not have received your order email. If you haven't, you should next batch!";
         }
 
         var timeLeftStr = FormatTime(timeLeft);
