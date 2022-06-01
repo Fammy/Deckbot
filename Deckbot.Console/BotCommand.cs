@@ -20,7 +20,7 @@ public class BotCommand
 
     public (bool Success, string Reply) ProcessComment(IncomingRequest request)
     {
-        if (!request.IsAtValidLevel && request.Body.Contains("!deckbot", StringComparison.CurrentCultureIgnoreCase))
+        if (!request.IsAtValidLevel)
         {
             return (false, string.Empty);
             //return (true, @"Hi, while I do work in this post, I only work on replies to other comments to cut down on top level deckbot spam. You can also [PM](https://www.reddit.com/message/compose/?to=deck_bot&subject=deck&message=!deckbot%20) me if you want or comment (anywhere!) on [my post](https://www.reddit.com/r/SteamDeck/comments/ui642q/introducing_deckbot/).");
