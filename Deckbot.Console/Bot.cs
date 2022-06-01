@@ -272,7 +272,7 @@ public static class Bot
 
         if (lastRateLimited < TimeSpan.FromSeconds(rateLimitCooldown))
         {
-            WriteLine($"Skipping {queueName} reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}, cooldown is {rateLimitCooldown}");
+            WriteLine($"Skipping {queueName} reply queue due to rate limit {lastRateLimited.TotalSeconds:F1}s ago. Queue size is {queueSize}, cooldown is {rateLimitCooldown}s");
             return;
         }
 
