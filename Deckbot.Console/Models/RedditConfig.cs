@@ -18,4 +18,6 @@ public class RedditConfig
     public int CommentReplyCooldownMs { get; set; }
 
     public int DownloadReservationDataFrequency { get; set; }
+
+    public string? BotStatusMessage { get; set; }
 }

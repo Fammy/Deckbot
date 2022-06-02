@@ -104,6 +104,8 @@ If you don't have your `rtReserveTime`, here's how to get it:
             return $@"Whoa!! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **0 seconds** worth of pre-orders before yours remaining.  You may or may not have received your order email. If you haven't, you should next batch!";
         }
 
+        var botServiceMessage = string.IsNullOrWhiteSpace(Bot.StatusMessage) ? "" : $"*{Bot.StatusMessage}*\n\n";
+
         var timeLeftStr = FormatTime(timeLeft);
         var percent = ((bestTime - PreOrderStartTime) / (double)(reserveTime - PreOrderStartTime)) * 100;
 
@@ -114,7 +116,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
             percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp", "*Sad bot noises*") :
         ".";
 
-        return $@"{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
+        return $@"{botServiceMessage}{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
     }
 
     private static string PickRandomly(params string[] options)

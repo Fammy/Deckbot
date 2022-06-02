@@ -32,6 +32,8 @@ Bot reads this at startup to get config values.
 
 	"DownloadReservationDataFrequency": 15, // Number of seconds to download new reservation data from Google Sheet
 
+	"BotStatusMessage": "", // Optional message to display at the beginning of messages. Limited to successful requests.
+
 	"MonitorSubreddit": false, // If true, monitors all subreddits the user/bot is subscribed to for authorized posts in `PostsToMonitor` below. More work, but will find all comments and not top-level comments.
 	"MonitorBotUserPosts": false, // Monitor all user/self posts by the bot
 	"MonitorBotPrivateMessages": false, // Monitor bot's Private Messages
