@@ -278,8 +278,14 @@ public static class Bot
             return;
         }
 
-        OverrideMessageRateLimitCooldown = 0;
-        OverrideCommentRateLimitCooldown = 0;
+        if (source == RequestSource.PrivateMessage)
+        {
+            OverrideMessageRateLimitCooldown = 0;
+        }
+        else
+        {
+            OverrideCommentRateLimitCooldown = 0;
+        }
 
         if (replyQueue.Count >= 10)
         {
@@ -352,7 +358,7 @@ public static class Bot
                     {
                         if (breakMessages[0].Contains("second"))
                         {
-                            wait += 2;
+                            wait += 5;
                         }
                         else if (breakMessages[0].Contains("minute"))
                         {
@@ -360,7 +366,7 @@ public static class Bot
                         }
                         else if (breakMessages[0].Contains("hour"))
                         {
-                            wait = (wait * 3600);
+                            wait *= 3600;
                         }
 
                         if (source == RequestSource.PrivateMessage)
