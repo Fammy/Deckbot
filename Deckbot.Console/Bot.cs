@@ -26,6 +26,7 @@ public static class Bot
     private static List<string> BotPostIds { get; set; } = new();
     private static int OverrideCommentRateLimitCooldown { get; set; }
     private static int OverrideMessageRateLimitCooldown { get; set; }
+    private static DateTime ReservationDataLastUpdated = DateTime.MinValue;
 
     public static List<(string Model, string Region, int ReserveTime)>? ReservationData { get; private set; }
 
@@ -511,6 +512,7 @@ public static class Bot
 
                 if (updated)
                 {
+                    ReservationDataLastUpdated = DateTime.Now;
                     WriteLine("Found new reservation data");
                 }
             }
@@ -523,7 +525,7 @@ public static class Bot
     {
         if (string.IsNullOrWhiteSpace(reply)) return;
 
-        reply = reply.Replace("$lastUpdated", FileSystemOperations.LastReservationDataUpdate.ToUniversalTime().ToString("R"));
+        reply = reply.Replace("$lastUpdated", ReservationDataLastUpdated.ToUniversalTime().ToString("R"));
 
         lock (_lock)
         {
@@ -558,6 +560,7 @@ public static class Bot
 
     public static void ReloadReservationData()
     {
+        ReservationDataLastUpdated = DateTime.Now;
         WriteLine("Reloading reservation data...");
         ReservationData = FileSystemOperations.GetReservationData();
     }
