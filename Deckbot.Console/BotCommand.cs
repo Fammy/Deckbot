@@ -37,7 +37,8 @@ public class BotCommand
             var match = Regex.Match(request.Body, pattern, RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                return (true, command.ReplyFunc(match));
+                var reply = command.ReplyFunc(match);
+                return (true, reply);
             }
         }
 
@@ -73,16 +74,18 @@ If you don't have your `rtReserveTime`, here's how to get it:
             return string.Empty;
         }
 
+        var updatedSuffix = $"\n\n*Bot data last updated $lastUpdated*";
+
         var reserveTime = int.Parse(reserveTimeStr);
 
         if (IsInFuture(reserveTime))
         {
-            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is in the future. Something seems off. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.{updatedSuffix}";
         }
 
         if (reserveTime < PreOrderStartTime)
         {
-            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.";
+            return $@"Hi! It looks like you have a **{region} {model}GB** reservation. Your reservation time is before pre-orders opened. Something seems off. Summon me with `!deckbot help` and I'll tell you how to find your rtReserveTime.{updatedSuffix}";
         }
 
         var timeAfterSeconds = reserveTime - PreOrderStartTime;
@@ -101,7 +104,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
 
         if (timeLeft.TotalSeconds == 0)
         {
-            return $@"Whoa!! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **0 seconds** worth of pre-orders before yours remaining.  You may or may not have received your order email. If you haven't, you should next batch!";
+            return $@"Whoa!! It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **0 seconds** worth of pre-orders before yours remaining.  You may or may not have received your order email. If you haven't, you should next batch!{updatedSuffix}";
         }
 
         var botServiceMessage = string.IsNullOrWhiteSpace(Bot.StatusMessage) ? "" : $"*{Bot.StatusMessage}*\n\n";
@@ -116,7 +119,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
             percent < 1 ? ". " + PickRandomly("Oof", "😢", "Bruh", "Hang in there!", "Welp", "*Sad bot noises*") :
         ".";
 
-        return $@"{botServiceMessage}{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}";
+        return $@"{botServiceMessage}{greeting} It looks like you have a **{region} {model}GB** reservation. You reserved your deck **{timeAfterStr}** after pre-orders opened. There are **{timeLeftStr}** worth of pre-orders before yours remaining. You're **{percent:N2}%** of the way there{closing}{updatedSuffix}";
     }
 
     private static string PickRandomly(params string[] options)

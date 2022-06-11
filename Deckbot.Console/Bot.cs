@@ -42,7 +42,7 @@ public static class Bot
         }
 
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.4.8 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.0 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
@@ -523,7 +523,7 @@ public static class Bot
     {
         if (string.IsNullOrWhiteSpace(reply)) return;
 
-        // TODO: don't process if already replied, which may consume too many API calls
+        reply = reply.Replace("$lastUpdated", FileSystemOperations.LastReservationDataUpdate.ToUniversalTime().ToString("R"));
 
         lock (_lock)
         {

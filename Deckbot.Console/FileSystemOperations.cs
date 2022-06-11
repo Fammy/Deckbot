@@ -47,6 +47,8 @@ public static class FileSystemOperations
         }
     }
 
+    public static DateTime LastReservationDataUpdate => lastReservationDataUpdate;
+
     public static bool ReservationDataNeedsUpdate
     {
         get
