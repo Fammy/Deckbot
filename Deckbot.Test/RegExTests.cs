@@ -1,7 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 using Deckbot.Console;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using NuGet.Frameworks;
 
 namespace Deckbot.Test
 {
@@ -38,6 +37,24 @@ namespace Deckbot.Test
             Assert.IsTrue(Regex.IsMatch($"! deckbot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
             Assert.IsTrue(Regex.IsMatch($"!deck bot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
             Assert.IsTrue(Regex.IsMatch($"! deck bot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+        }
+
+        [TestMethod]
+        [DataRow("US", "512", "1626412345")]
+        [DataRow("EU", "64", "1626412345")]
+        [DataRow("UK", "256", "1626412345")]
+        [DataRow("us", "512", "1626412345")]
+        [DataRow("eu", "64", "1626412345")]
+        [DataRow("uk", "256", "1626412345")]
+        [DataRow("UK", "256GB", "1626412345")]
+        [DataRow("UK", "256gb", "1626412345")]
+        [DataRow("UK", "256GB", "rt1626412345")]
+        public void RegionModelTimeStrictUsername(string region, string model, string reserveTime)
+        {
+            Assert.IsTrue(Regex.IsMatch($"/u/deckbot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+            Assert.IsTrue(Regex.IsMatch($"/u/deck_bot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+            Assert.IsTrue(Regex.IsMatch($"u/deckbot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
+            Assert.IsTrue(Regex.IsMatch($"u/deck_bot {region} {model} {reserveTime}", RegexConsts.RegionModelTime, RegexOptions.IgnoreCase));
         }
 
         [TestMethod]
