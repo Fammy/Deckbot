@@ -402,13 +402,13 @@ public static class Bot
             }
             catch (RedditForbiddenException ex)
             {
-                FileSystemOperations.WriteException("forbidden_exception", reply, ex);
+                //FileSystemOperations.WriteException("forbidden_exception", reply, ex);
 
                 replyQueue.Dequeue();
 
                 System.Console.WriteLine(ex);
                 Log.Error(ex, $"Forbidden exception, discarding reply to {reply.OriginalAuthor}. Processed {processed}/{queueSize} replies in the {queueName} reply queue");
-                LogExceptionData(ex);
+                //LogExceptionData(ex);
             }
         }
 
