@@ -52,10 +52,17 @@ public static class Bot
 
         lock (_lock)
         {
-            commentReplyQueue = FileSystemOperations.GetReplyQueue(RequestSource.Post);
-            WriteLine($"Restored {commentReplyQueue.Count} comment replies from disk...");
-            messageReplyQueue = FileSystemOperations.GetReplyQueue(RequestSource.PrivateMessage);
-            WriteLine($"Restored {messageReplyQueue.Count} message replies from disk...");
+            if (Config.PostsToMonitor?.Length > 0 || Config.MonitorSubreddit || Config.MonitorBotUserPosts)
+            {
+                commentReplyQueue = FileSystemOperations.GetReplyQueue(RequestSource.Post);
+                WriteLine($"Restored {commentReplyQueue.Count} comment replies from disk...");
+            }
+
+            if (Config.MonitorBotPrivateMessages)
+            {
+                messageReplyQueue = FileSystemOperations.GetReplyQueue(RequestSource.PrivateMessage);
+                WriteLine($"Restored {messageReplyQueue.Count} message replies from disk...");
+            }
         }
 
         if (Config.MonitorSubreddit)
@@ -237,8 +244,17 @@ public static class Bot
             FileSystemOperations.WriteReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
             FileSystemOperations.WriteReplyQueue(commentReplyQueue, RequestSource.Post);
 
-            ProcessReplyQueue(commentReplyQueue, RequestSource.Post);
-            ProcessReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
+            if (Config == null) return;
+
+            if (Config.PostsToMonitor?.Length > 0 || Config.MonitorSubreddit || Config.MonitorBotUserPosts)
+            {
+                ProcessReplyQueue(commentReplyQueue, RequestSource.Post);
+            }
+
+            if (Config.MonitorBotPrivateMessages)
+            {
+                ProcessReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
+            }
         }
     }
 
