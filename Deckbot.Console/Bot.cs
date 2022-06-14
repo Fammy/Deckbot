@@ -231,6 +231,11 @@ public static class Bot
             return true;
         }
 
+        if (BotPostIds.Any(postId => postId.Equals(parentId, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return true;
+        }
+
         return !ValidPostIds.Any(postId => postId.Equals(parentId, StringComparison.CurrentCultureIgnoreCase));
     }
 
