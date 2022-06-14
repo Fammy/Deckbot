@@ -380,6 +380,10 @@ public static class Bot
 
                     if (int.TryParse(match.Value, out var wait))
                     {
+                        if (breakMessages[0].Contains("millisecond"))
+                        {
+                            wait = 1;
+                        }
                         if (breakMessages[0].Contains("second"))
                         {
                             wait += 5;
