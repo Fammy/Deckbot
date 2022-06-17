@@ -43,7 +43,7 @@ public static class Bot
         }
 
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.2 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.4 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
@@ -141,8 +141,10 @@ public static class Bot
     {
         WriteLine($"Flushing new private messages...");
         account.Messages.GetMessagesUnread();
-        account.Messages.MarkAllRead();
+#if !DEBUG
         WriteLine($"Marking all private messages as read...");
+        account.Messages.MarkAllRead();
+#endif
         account.Messages.GetMessagesUnread();
         account.Messages.UnreadUpdated += async (sender, args) =>
         {
@@ -563,6 +565,11 @@ public static class Bot
         {
             if (request.Source == RequestSource.PrivateMessage)
             {
+                if (messageReplyQueue.Any(q => q.CommentId == request.MessageId))
+                {
+                    return;
+                }
+
                 messageReplyQueue.Enqueue(new BotReply
                 {
                     CommentId = request.MessageId,
@@ -573,6 +580,11 @@ public static class Bot
             }
             else
             {
+                if (commentReplyQueue.Any(q => q.CommentId == request.MessageId))
+                {
+                    return;
+                }
+
                 commentReplyQueue.Enqueue(new BotReply
                 {
                     CommentId = request.MessageId,
