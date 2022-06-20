@@ -43,7 +43,7 @@ public static class Bot
         }
 
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.4 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.6 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
