@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
 using Deckbot.Console.Models;
@@ -43,7 +44,7 @@ public static class Bot
         }
 
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.4 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.5 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
@@ -101,7 +102,9 @@ public static class Bot
             MonitorPrivateMessages(Client.Account);
         }
 
-        ProcessReplyQueues();
+        ProcessReplyQueues(false);
+
+        WriteLine("Startup complete");
     }
 
     private static void UpdatePostsToMonitor()
@@ -179,7 +182,7 @@ public static class Bot
                 }
             }
 
-            ProcessReplyQueues();
+            ProcessReplyQueues(true);
         }
         catch (Exception ex)
         {
@@ -215,7 +218,7 @@ public static class Bot
                 }
             }
 
-            ProcessReplyQueues();
+            ProcessReplyQueues(true);
         }
         catch (Exception ex)
         {
@@ -251,7 +254,7 @@ public static class Bot
         return ValidPostIds.Any(postId => permalink.Contains($"/{postId}/"));
     }
 
-    private static void ProcessReplyQueues()
+    private static void ProcessReplyQueues(bool waitForFirst)
     {
         lock (_lock)
         {
@@ -262,17 +265,17 @@ public static class Bot
 
             if (Config.PostsToMonitor?.Length > 0 || Config.MonitorSubreddit || Config.MonitorBotUserPosts)
             {
-                ProcessReplyQueue(commentReplyQueue, RequestSource.Post);
+                ProcessReplyQueue(commentReplyQueue, RequestSource.Post, waitForFirst);
             }
 
             if (Config.MonitorBotPrivateMessages)
             {
-                ProcessReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
+                ProcessReplyQueue(messageReplyQueue, RequestSource.PrivateMessage, waitForFirst);
             }
         }
     }
 
-    private static void ProcessReplyQueue(Queue<BotReply> replyQueue, RequestSource source)
+    private static void ProcessReplyQueue(Queue<BotReply> replyQueue, RequestSource source, bool waitForFirst)
     {
         if (Config == null || Client == null)
         {
@@ -316,6 +319,11 @@ public static class Bot
         else
         {
             OverrideCommentRateLimitCooldown = 0;
+        }
+
+        if (waitForFirst)
+        {
+            Thread.Sleep(5000);
         }
 
         if (replyQueue.Count >= 10)
