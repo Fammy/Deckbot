@@ -43,7 +43,7 @@ public static class Bot
         }
 
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.6 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.7 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
@@ -146,11 +146,7 @@ public static class Bot
         account.Messages.MarkAllRead();
 #endif
         account.Messages.GetMessagesUnread();
-        account.Messages.UnreadUpdated += async (sender, args) =>
-        {
-            await MessagesUpdated(sender, args);
-            await account.Messages.MarkAllReadAsync();
-        };
+        account.Messages.UnreadUpdated += async (sender, args) => await MessagesUpdated(sender, args);
         WriteLine($"Monitoring new private messages...");
         account.Messages.MonitorUnread(monitoringBaseDelayMs: 15000);
     }

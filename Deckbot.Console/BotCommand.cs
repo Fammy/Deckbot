@@ -74,7 +74,7 @@ If you don't have your `rtReserveTime`, here's how to get it:
             return string.Empty;
         }
 
-        var updatedSuffix = $"\n\n*Bot data last updated $lastUpdated*";
+        var updatedSuffix = $"\n\nTrack your status via GetMyDeck: https://getmydeck.ingenhaag.dev/s/{region}/{model}/{reserveTimeStr}\n\n*Bot data last updated $lastUpdated*";
 
         var reserveTime = int.Parse(reserveTimeStr);
 
