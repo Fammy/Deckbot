@@ -9,6 +9,7 @@ public static class FileSystemOperations
     private const string ReservationDataFilename = "./config/data.tsv";
     private const string CommentReplyQueueFilename = "./data/commentreplyqueue.json";
     private const string MessageReplyQueueFilename = "./data/messagereplyqueue.json";
+    private const string StateFilename = "./data/botstate.json";
     private const string ErrorFilename = "./logs/{0}.log";
     private const string ReservationDataDownloadUrl = "https://docs.google.com/spreadsheets/d/1ngfg2eP8E_Ue81lqGl6v34uVJ73qrfnq9S-H1aCZGD0/export?format=csv&gid=277245429";
 
@@ -23,6 +24,29 @@ public static class FileSystemOperations
 
         var json = File.ReadAllText(ConfigFilename);
         return JsonConvert.DeserializeObject<RedditConfig>(json);
+    }
+
+    public static BotState? GetState()
+    {
+        if (!File.Exists(StateFilename))
+        {
+            return null;
+        }
+
+        lock (_lock)
+        {
+            var json = File.ReadAllText(StateFilename);
+            return JsonConvert.DeserializeObject<BotState>(json);
+        }
+    }
+
+    public static void WriteState(BotState state)
+    {
+        lock (_lock)
+        {
+            var json = JsonConvert.SerializeObject(state);
+            File.WriteAllText(StateFilename, json);
+        }
     }
 
     public static List<(string Model, string Region, int ReserveTime)> GetReservationData()

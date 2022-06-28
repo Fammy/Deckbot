@@ -26,9 +26,14 @@ public static class Bot
     private static List<string> BotPostIds { get; set; } = new();
     private static int OverrideCommentRateLimitCooldown { get; set; }
     private static int OverrideMessageRateLimitCooldown { get; set; }
-    private static DateTime ReservationDataLastUpdated = DateTime.MinValue;
 
     public static List<(string Model, string Region, int ReserveTime)>? ReservationData { get; private set; }
+
+    private static BotState State { get; set; } = new BotState
+    {
+        LastCommentReplyId = "a",
+        LastMessageReplyId = "a"
+    };
 
     public static string StatusMessage => Config?.BotStatusMessage ?? "";
 
@@ -42,8 +47,14 @@ public static class Bot
             return;
         }
 
+        var state = FileSystemOperations.GetState();
+        if (state != null)
+        {
+            State = state;
+        }
+
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.7 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.9 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
@@ -121,7 +132,7 @@ public static class Bot
     {
         if (sub.Name.Equals("Announcements", StringComparison.CurrentCultureIgnoreCase)) return;
 
-        WriteLine($"Flushing new comments in /r/{sub.Name}...");
+        //WriteLine($"Flushing new comments in /r/{sub.Name}...");
         sub.Comments.GetNew();
         sub.Comments.NewUpdated += async (sender, args) => await OnNewComment(sender, args);
         WriteLine($"Monitoring new comments in /r/{sub.Name}...");
@@ -130,7 +141,7 @@ public static class Bot
 
     private static void MonitorPost(Post post)
     {
-        WriteLine($"Flushing new comments in post {post.Title ?? post.Fullname}...");
+        //WriteLine($"Flushing new comments in post {post.Title ?? post.Fullname}...");
         post.Comments.GetNew();
         post.Comments.NewUpdated += async (sender, args) => await OnNewComment(sender, args);
         WriteLine($"Monitoring new comments in post {post.Title ?? post.Fullname}...");
@@ -139,11 +150,11 @@ public static class Bot
 
     private static void MonitorPrivateMessages(Account account)
     {
-        WriteLine($"Flushing new private messages...");
+        //WriteLine($"Flushing new private messages...");
         account.Messages.GetMessagesUnread();
 #if !DEBUG
-        WriteLine($"Marking all private messages as read...");
-        account.Messages.MarkAllRead();
+        //WriteLine($"Marking all private messages as read...");
+        //account.Messages.MarkAllRead();
 #endif
         account.Messages.GetMessagesUnread();
         account.Messages.UnreadUpdated += async (sender, args) => await MessagesUpdated(sender, args);
@@ -258,11 +269,13 @@ public static class Bot
 
             if (Config.PostsToMonitor?.Length > 0 || Config.MonitorSubreddit || Config.MonitorBotUserPosts)
             {
+                commentReplyQueue = new Queue<BotReply>(commentReplyQueue.OrderBy(t => t.CommentId));
                 ProcessReplyQueue(commentReplyQueue, RequestSource.Post);
             }
 
             if (Config.MonitorBotPrivateMessages)
             {
+                messageReplyQueue = new Queue<BotReply>(messageReplyQueue.OrderBy(t => t.CommentId));
                 ProcessReplyQueue(messageReplyQueue, RequestSource.PrivateMessage);
             }
         }
@@ -325,6 +338,15 @@ public static class Bot
         {
             var reply = replyQueue.Peek();
 
+            var lastReply = source == RequestSource.PrivateMessage ? Bot.State.LastMessageReplyId : Bot.State.LastCommentReplyId;
+
+            if (lastReply != null && string.Compare(reply.CommentId, lastReply, StringComparison.Ordinal) <= 0)
+            {
+                WriteLine("Old parent, discarding...");
+                replyQueue.Dequeue();
+                continue;
+            }
+
             try
             {
                 var comment = Client.Comment(reply.CommentId);
@@ -334,6 +356,15 @@ public static class Bot
                 processed++;
 
                 var replyCooldown = source == RequestSource.PrivateMessage ? Config.MessageReplyCooldownMs : Config.CommentReplyCooldownMs;
+
+                if (source == RequestSource.PrivateMessage)
+                {
+                    State.LastMessageReplyId = reply.CommentId;
+                }
+                else
+                {
+                    State.LastCommentReplyId = reply.CommentId;
+                }
 
                 // Throttle replies if queue has more than 1 item and we aren't on the last item
                 if (queueSize > 1 && replyQueue.Count > 0)
@@ -358,6 +389,7 @@ public static class Bot
                     var behindTime = DateTime.Now - reply.ReplyTime.Value;
                     behindMessage = $". Deckbot is {behindTime.Hours:D2}:{behindTime.Minutes:D2}:{behindTime.Seconds:D2} behind";
                 }
+
                 var errors = new List<string>();
 
                 foreach (DictionaryEntry entry in ex.Data)
@@ -387,6 +419,7 @@ public static class Bot
                         {
                             wait = 1;
                         }
+
                         if (breakMessages[0].Contains("second"))
                         {
                             wait += 5;
@@ -418,6 +451,7 @@ public static class Bot
                 LogExceptionData(ex);
 
                 FileSystemOperations.WriteReplyQueue(replyQueue, source);
+                FileSystemOperations.WriteState(State);
 
                 return;
             }
@@ -446,6 +480,7 @@ public static class Bot
         WriteLine($"Made it through the {queueName} queue, processed {processed}/{queueSize}");
 
         FileSystemOperations.WriteReplyQueue(replyQueue, source);
+        FileSystemOperations.WriteState(Bot.State);
     }
 
     private static void LogExceptionData(Exception ex)
@@ -542,7 +577,7 @@ public static class Bot
 
                 if (updated)
                 {
-                    ReservationDataLastUpdated = DateTime.Now;
+                    State.ReservationDataLastUpdated = DateTime.Now;
                     WriteLine("Found new reservation data");
                 }
             }
@@ -555,7 +590,7 @@ public static class Bot
     {
         if (string.IsNullOrWhiteSpace(reply)) return;
 
-        reply = reply.Replace("$lastUpdated", ReservationDataLastUpdated.ToUniversalTime().ToString("R"));
+        reply = reply.Replace("$lastUpdated", State.ReservationDataLastUpdated.ToUniversalTime().ToString("R"));
 
         lock (_lock)
         {
@@ -600,7 +635,6 @@ public static class Bot
 
     public static void ReloadReservationData()
     {
-        ReservationDataLastUpdated = DateTime.Now;
         WriteLine("Reloading reservation data...");
         ReservationData = FileSystemOperations.GetReservationData();
     }
