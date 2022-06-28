@@ -54,7 +54,7 @@ public static class Bot
         }
 
         ReloadReservationData();
-        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.5.9 (by /u/Fammy)");
+        Client = new RedditClient(Config.AppId, Config.RefreshToken, Config.AppSecret, userAgent: "bot:deck_bot:v0.6.0 (by /u/Fammy)");
         CommentRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.CommentRateLimitCooldown);
         MessageRateLimitedTime = DateTime.Now - TimeSpan.FromSeconds(Config.MessageRateLimitCooldown);
         BotName = Client.Account.Me.Name;
@@ -176,7 +176,7 @@ public static class Bot
                 };
 
 #if DEBUG
-                WriteLine($"PM from /u/{request.Author}: {message.Body.Substring(0, Math.Min(25, request.Body.Length))}");
+                WriteLine($"PM {request.MessageId} from /u/{request.Author}: {message.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
                 await ParseIncomingRequest(request);
 
@@ -209,7 +209,7 @@ public static class Bot
                 if (CommentIsInAuthorizedPost(comment.Permalink))
                 {
 #if DEBUG
-                    WriteLine($"Comment from /u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
+                    WriteLine($"Comment {request.MessageId} from /u/{request.Author}: {comment.Body.Substring(0, Math.Min(25, request.Body.Length))}");
 #endif
                     request.IsAtValidLevel = CommentIsAtAllowedLevel(comment.ParentId);
 
@@ -338,11 +338,11 @@ public static class Bot
         {
             var reply = replyQueue.Peek();
 
-            var lastReply = source == RequestSource.PrivateMessage ? Bot.State.LastMessageReplyId : Bot.State.LastCommentReplyId;
+            var lastReply = source == RequestSource.PrivateMessage ? State.LastMessageReplyId : State.LastCommentReplyId;
 
             if (lastReply != null && string.Compare(reply.CommentId, lastReply, StringComparison.Ordinal) <= 0)
             {
-                WriteLine("Old parent, discarding...");
+                WriteLine($"Old parent, discarding {reply.CommentId}...");
                 replyQueue.Dequeue();
                 continue;
             }
@@ -480,7 +480,7 @@ public static class Bot
         WriteLine($"Made it through the {queueName} queue, processed {processed}/{queueSize}");
 
         FileSystemOperations.WriteReplyQueue(replyQueue, source);
-        FileSystemOperations.WriteState(Bot.State);
+        FileSystemOperations.WriteState(State);
     }
 
     private static void LogExceptionData(Exception ex)
